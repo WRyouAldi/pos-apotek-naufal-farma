@@ -685,3 +685,85 @@ html[data-theme="dark"] .table-wrap{box-shadow:0 8px 24px rgba(0,0,0,.2)}
 @media(prefers-reduced-motion:reduce){
  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+
+/* Inventory picker and sales report — complete-data presentation */
+.movement-page-head h3{margin:5px 0 0;font-size:20px;letter-spacing:-.035em}
+.movement-picker-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px 0 10px}
+.movement-picker-head>div{display:grid;gap:4px}
+.movement-picker-head>div>b{font-size:14px;font-weight:780}
+.movement-picker-head>div>small,.movement-history-head>div>small{color:var(--muted);font-size:11px}
+.movement-picker-count{padding:7px 10px;border-radius:999px;background:var(--brand-soft);color:var(--brand-strong);font-size:10px;font-weight:800;white-space:nowrap}
+.movement-product-list{display:grid;gap:7px;max-height:min(52vh,520px);overflow:auto;overscroll-behavior:contain;padding:2px 3px 8px;margin:8px -3px 14px;scrollbar-width:thin}
+.movement-product-option{display:grid;grid-template-columns:40px minmax(0,1fr) auto auto;align-items:center;gap:11px;width:100%;min-height:66px;padding:9px 12px;border:1px solid var(--surface-outline);border-radius:16px;background:var(--glass-card);color:var(--ink);text-align:left;transition:background .18s var(--ease),border-color .18s var(--ease),transform .18s var(--ease),box-shadow .18s var(--ease)}
+.movement-product-option.selected{border-color:rgba(37,159,111,.7);background:rgba(65,180,130,.12);box-shadow:0 0 0 2px rgba(37,159,111,.12)}
+.movement-option-copy{display:grid;gap:4px;min-width:0}
+.movement-option-copy>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:760}
+.movement-option-copy>small,.movement-option-stock>small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:10px}
+.movement-option-stock{display:grid;justify-items:end;gap:2px;font-variant-numeric:tabular-nums}
+.movement-option-stock>b{font-size:13px}
+.movement-option-price{color:var(--muted);font-size:10px;font-weight:700;white-space:nowrap}
+.movement-selected-card{display:flex;align-items:center;gap:12px;padding:13px;margin:8px 0 12px;border:1px solid rgba(38,157,110,.3);border-radius:17px;background:rgba(53,173,124,.09)}
+.movement-selected-card>div{display:grid;gap:3px;min-width:0;flex:1}
+.movement-selected-card>div>small{font-size:9px;font-weight:850;letter-spacing:.1em;color:var(--brand-strong)}
+.movement-selected-card>div>b{font-size:13px;overflow-wrap:anywhere}
+.movement-selected-card>div>span{font-size:10px;color:var(--muted)}
+.movement-selected-card>svg{color:var(--brand-strong);flex:none}
+.movement-action{display:flex;align-items:center;justify-content:center;gap:9px;width:100%}
+.movement-history-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:24px 0 12px;padding-top:18px;border-top:1px solid var(--surface-outline)}
+.movement-history-head>div{display:grid;gap:4px}
+.movement-history-head h3{margin:0;font-size:15px;font-weight:780}
+.movement-history-grid{display:grid;gap:8px}
+.movement-history-card{grid-template-columns:38px minmax(0,1fr) auto;min-height:70px;padding:11px 12px;border-radius:16px}
+.movement-history-card>span:nth-child(2){display:grid;gap:4px;min-width:0}
+.movement-history-card>span:nth-child(2)>b{overflow-wrap:anywhere;font-size:12px}
+.movement-history-card>span:nth-child(2)>small{font-size:10px;color:var(--muted)}
+.movement-history-card>strong{font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.movement-list-empty,.sales-report-empty{display:grid;justify-items:center;gap:8px;padding:28px 16px;border:1px dashed var(--surface-outline);border-radius:17px;color:var(--muted);text-align:center}
+.movement-list-empty svg,.sales-report-empty svg{color:var(--brand-strong)}
+.movement-list-empty b,.sales-report-empty b{color:var(--ink);font-size:13px}
+.movement-list-empty small,.sales-report-empty small{font-size:11px}
+.sales-report-list{display:grid;gap:12px;margin-top:14px}
+.sales-report-card{overflow:hidden;padding:15px;border:1px solid var(--surface-outline);border-radius:18px;background:var(--glass-card);box-shadow:var(--elevation-1)}
+.sales-report-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--surface-outline)}
+.sales-report-top>div{display:grid;gap:4px;min-width:0}
+.sales-report-index{color:var(--brand-strong);font-size:9px;font-weight:850;letter-spacing:.1em}
+.sales-report-top>div>b{font-size:12px}
+.sales-report-top>div>small{color:var(--muted);font-size:10px}
+.sales-receipt-btn{display:inline-flex;align-items:center;gap:6px;flex:none}
+.sales-report-items{display:grid;gap:0;padding:5px 0}
+.sales-report-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--surface-outline)}
+.sales-report-item:last-child{border-bottom:0}
+.sales-report-item>span{display:grid;gap:4px;min-width:0}
+.sales-report-item>span>b{font-size:11px;overflow-wrap:anywhere}
+.sales-report-item>span>small{color:var(--muted);font-size:10px}
+.sales-report-item>strong{font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.sales-report-total{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:11px;border-top:1px solid var(--surface-outline)}
+.sales-report-total>span{font-size:11px;color:var(--muted);font-weight:700}
+.sales-report-total>b{font-size:16px;color:var(--brand-strong);font-weight:850;font-variant-numeric:tabular-nums}
+html[data-theme="dark"] .movement-product-option{background:rgba(24,43,64,.72);border-color:rgba(143,184,211,.18)}
+html[data-theme="dark"] .movement-product-option.selected{background:rgba(42,155,119,.17);border-color:rgba(87,218,173,.55)}
+html[data-theme="dark"] .movement-selected-card{background:rgba(42,155,119,.12);border-color:rgba(87,218,173,.3)}
+html[data-theme="dark"] .sales-report-card{background:rgba(25,41,64,.76);border-color:rgba(143,184,211,.18)}
+html[data-theme="dark"] .movement-list-empty,html[data-theme="dark"] .sales-report-empty{border-color:rgba(143,184,211,.22)}
+@media(hover:hover){
+ .movement-product-option:hover{transform:translateY(-1px);border-color:rgba(37,159,111,.5);box-shadow:var(--elevation-1)}
+}
+@media(max-width:700px){
+ .movement-page-head h3{font-size:18px}
+ .movement-product-list{max-height:46vh}
+ .movement-product-option{grid-template-columns:34px minmax(0,1fr) auto;gap:8px;padding:9px}
+ .movement-product-icon{width:34px;height:34px}
+ .movement-option-price{display:none}
+ .movement-option-stock>b{font-size:12px}
+ .movement-history-card{grid-template-columns:34px minmax(0,1fr) auto;padding:10px}
+ .sales-report-card{padding:12px;border-radius:16px}
+ .sales-report-top{align-items:flex-start}
+ .sales-receipt-btn{min-height:42px;padding:7px 9px;font-size:10px}
+ .sales-report-total>b{font-size:15px}
+}
+@media(max-width:380px){
+ .movement-history-card{grid-template-columns:32px minmax(0,1fr) auto;gap:8px}
+ .sales-report-top{flex-wrap:wrap}
+ .sales-receipt-btn{margin-left:auto}
+}
