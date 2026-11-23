@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useState} from 'react';
 import Papa from 'papaparse';
+import {jsPDF} from 'jspdf';
 import {db,type Product,type Sale,type Movement} from './db';
 import {Activity,ArrowDownToLine,ArrowUpFromLine,BarChart3,Boxes,Camera,ChevronDown,Home,Package,Search,Settings,ShoppingCart,Upload,WifiOff,Download,FileUp} from 'lucide-react';
 import {Html5Qrcode} from 'html5-qrcode';
@@ -8,7 +9,7 @@ const tabs:Tab[]=['Dashboard','Kasir','Cek Harga','Barang','Barang Masuk','Baran
 const money=(n:number)=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n||0);
 const num=(v:unknown)=>Number(String(v??'0').replace(/[^0-9-]/g,''))||0;
 export default function App(){
- const [tab,setTab]=useState<Tab>('Dashboard'),[openMenu,setOpenMenu]=useState<'Produk'|'Persediaan'|null>(null),[products,setProducts]=useState<Product[]>([]),[sales,setSales]=useState<Sale[]>([]),[moves,setMoves]=useState<Movement[]>([]),[query,setQuery]=useState(''),[cart,setCart]=useState<{p:Product,qty:number}[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[scan,setScan]=useState(false);
+ const [tab,setTab]=useState<Tab>('Dashboard'),[reportFrom,setReportFrom]=useState(''),[reportTo,setReportTo]=useState(''),[pdfBusy,setPdfBusy]=useState(false),[openMenu,setOpenMenu]=useState<'Produk'|'Persediaan'|null>(null),[products,setProducts]=useState<Product[]>([]),[sales,setSales]=useState<Sale[]>([]),[moves,setMoves]=useState<Movement[]>([]),[query,setQuery]=useState(''),[cart,setCart]=useState<{p:Product,qty:number}[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[scan,setScan]=useState(false);
  async function refresh(){setProducts(await db.products.toArray());setSales(await db.sales.toArray());setMoves(await db.movements.toArray())}
  useEffect(()=>{void refresh()},[]);
  useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),3200);return()=>clearTimeout(t)},[notice]);
@@ -117,6 +118,52 @@ export default function App(){
   }catch(e){setNotice('Pemulihan dibatalkan: '+(e instanceof Error?e.message:String(e)))}
   finally{setBusy(false)}
  }
+ const pdfDate=(value:string)=>new Date(value).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'});
+ async function downloadReceiptPDF(sale:Sale){
+  setPdfBusy(true);
+  try{
+   const doc=new jsPDF({unit:'mm',format:[80,180]});
+   const pageW=80,margin=5;let y=9;
+   doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('APOTEK NAUFAL FARMA',pageW/2,y,{align:'center'});y+=6;
+   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text('STRUK PENJUALAN',pageW/2,y,{align:'center'});y+=6;
+   doc.setFontSize(7);doc.text('No: '+(sale.id??'-'),margin,y);y+=4;doc.text(pdfDate(sale.createdAt),margin,y);y+=4;
+   doc.line(margin,y,pageW-margin,y);y+=5;
+   doc.setFont('helvetica','bold');doc.text('Produk',margin,y);doc.text('Total',pageW-margin,y,{align:'right'});y+=4;
+   doc.setFont('helvetica','normal');
+   for(const item of sale.items){
+    const lines=doc.splitTextToSize(item.name, pageW-2*margin-2);
+    doc.text(lines,margin,y);y+=lines.length*3.5;
+    doc.text(item.qty+' x '+money(item.price),margin+2,y);doc.text(money(item.qty*item.price),pageW-margin,y,{align:'right'});y+=4;
+    if(y>165){doc.addPage([80,180]);y=10}
+   }
+   doc.line(margin,y,pageW-margin,y);y+=6;
+   doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text('TOTAL',margin,y);doc.text(money(sale.total),pageW-margin,y,{align:'right'});y+=8;
+   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text('Terima kasih telah berbelanja',pageW/2,y,{align:'center'});y+=4;doc.text('Semoga lekas sehat kembali.',pageW/2,y,{align:'center'});
+   doc.save('struk-naufal-farma-'+(sale.id??Date.now())+'.pdf');
+  }catch(e){setNotice('PDF struk gagal dibuat: '+String(e))}finally{setPdfBusy(false)}
+ }
+ async function downloadReportPDF(list:Sale[]){
+  if(!list.length){setNotice('Tidak ada transaksi pada rentang tanggal ini.');return}
+  setPdfBusy(true);
+  try{
+   const doc=new jsPDF({unit:'mm',format:'a4'}),left=14,right=196;let y=16;
+   const from=reportFrom||'Awal',to=reportTo||'Hari ini';
+   doc.setFont('helvetica','bold');doc.setFontSize(16);doc.text('APOTEK NAUFAL FARMA',left,y);y+=7;
+   doc.setFontSize(11);doc.text('LAPORAN PENJUALAN',left,y);y+=6;
+   doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text('Periode: '+from+' s.d. '+to,left,y);y+=8;
+   const total=list.reduce((a,v)=>a+v.total,0),profitTotal=list.reduce((a,v)=>a+v.items.reduce((b,i)=>b+(i.price-i.cost)*i.qty,0),0);
+   doc.setFont('helvetica','bold');doc.text('Jumlah transaksi: '+list.length,left,y);y+=5;doc.text('Omzet: '+money(total),left,y);y+=5;doc.text('Estimasi laba: '+money(profitTotal),left,y);y+=8;
+   const drawHead=()=>{doc.setFillColor(232,241,250);doc.rect(left,y,182,8,'F');doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('Waktu',left+2,y+5);doc.text('Rincian',left+38,y+5);doc.text('Total',right-2,y+5,{align:'right'});y+=11};
+   drawHead();doc.setFont('helvetica','normal');
+   for(const sale of list){
+    const details=doc.splitTextToSize(sale.items.map(i=>i.name+' x'+i.qty).join(', '),112);
+    const rowH=Math.max(7,details.length*4);
+    if(y+rowH>280){doc.addPage();y=16;drawHead();doc.setFont('helvetica','normal')}
+    doc.setFontSize(7.5);doc.text(pdfDate(sale.createdAt),left+2,y);doc.text(details,left+38,y);doc.text(money(sale.total),right-2,y,{align:'right'});y+=rowH+2;doc.setDrawColor(225,232,240);doc.line(left,y-1,right,y-1);
+   }
+   doc.save('laporan-penjualan-naufal-farma-'+(reportFrom||'semua')+'-'+(reportTo||'terkini')+'.pdf');
+  }catch(e){setNotice('PDF laporan gagal dibuat: '+String(e))}finally{setPdfBusy(false)}
+ }
  const exportCSV=()=>{const csv=Papa.unparse(products.map(p=>({'Kode Item':p.code,'Kode Barcode':p.barcode,'Nama Item':p.name,'Jenis':p.category,'Merek':p.brand,'Stok':p.stock,'Satuan':p.unit,'Harga Beli':p.buyPrice,'Harga Jual':p.sellPrice,'Stok Min':p.minStock,'Rak':p.shelf,'Supplier':p.supplier})));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='backup-produk.csv';a.click();URL.revokeObjectURL(a.href)};
  return <div className="app"><nav className="topbar" aria-label="Navigasi utama">
  <div className="brand"><span className="brandmark">N</span><div><b>NAUFAL FARMA</b><small>POINT OF SALE</small></div></div>
@@ -147,7 +194,7 @@ export default function App(){
  {tab==='Kasir'&&<div className="grid-two"><section className="panel"><div className="panel-head"><h3>Pilih produk</h3><button className="soft-btn" onClick={()=>void startScan()}><Camera size={16}/> Scan</button></div><input className="search" placeholder="Cari nama, kode, barcode..." value={query} onChange={e=>setQuery(e.target.value)}/>{filtered.map(p=><button className="product-pick" key={p.code} onClick={()=>add(p)}><span>{p.name}<small>{p.code} · Stok {p.stock}</small></span><b>{money(p.sellPrice)}</b></button>)}</section><section className="panel"><h3>Keranjang ({cart.length})</h3>{cart.map(x=><div className="row" key={x.p.code}><span>{x.p.name} × {x.qty}</span><b>{money(x.qty*x.p.sellPrice)}</b><button onClick={()=>setCart(c=>c.filter(y=>y.p.code!==x.p.code))}>×</button></div>)}<h2>{money(cart.reduce((a,x)=>a+x.qty*x.p.sellPrice,0))}</h2><button className="primary full" disabled={!cart.length} onClick={()=>void checkout()}>Selesaikan transaksi</button></section></div>}
  {(tab==='Cek Harga'||tab==='Barang')&&<section className="panel"><div className="panel-head"><h3>{tab==='Barang'?'Master barang':'Pencarian harga produk'}</h3>{tab==='Barang'&&<label className="soft-btn upload"><Upload size={16}/> Impor CSV<input type="file" accept=".csv" onChange={e=>e.target.files?.[0]&&void importCSV(e.target.files[0])}/></label>}</div><input className="search" placeholder="Cari nama, kode, atau barcode..." value={query} onChange={e=>setQuery(e.target.value)}/><div className="table-wrap"><table><thead><tr><th>Nama</th><th>Kode</th><th>Stok</th><th>Harga beli</th><th>Harga jual</th></tr></thead><tbody>{filtered.map(p=><tr key={p.code}><td>{p.name}</td><td>{p.code}</td><td>{p.stock} {p.unit}</td><td>{tab==='Barang'?money(p.buyPrice):'—'}</td><td>{money(p.sellPrice)}</td></tr>)}</tbody></table></div></section>}
  {(tab==='Barang Masuk'||tab==='Barang Keluar')&&<section className="panel"><h3>{tab}</h3><input className="search" placeholder="Kode item atau barcode" value={query} onChange={e=>setQuery(e.target.value)}/><p>{products.find(p=>p.code===query||p.barcode===query)?.name||'Masukkan kode produk yang tepat.'}</p><button className="primary" onClick={()=>void moveStock(tab==='Barang Masuk'?'MASUK':'KELUAR')}>Catat mutasi</button><h3>Riwayat mutasi</h3>{moves.filter(m=>m.type===(tab==='Barang Masuk'?'MASUK':'KELUAR')).slice(-30).reverse().map((m,i)=><p className="row" key={i}>{m.createdAt.slice(0,16)} · {m.name} · {m.qty}</p>)}</section>}
- {tab==='Laporan'&&<section className="panel"><div className="panel-head"><h3>Riwayat penjualan</h3><b>Omzet: {money(sales.reduce((a,s)=>a+s.total,0))}</b></div>{sales.slice(-100).reverse().map((s,i)=><p className="row" key={i}>{s.createdAt.slice(0,16)} · {s.items.map(x=>x.name+' ×'+x.qty).join(', ')} <b>{money(s.total)}</b></p>)}</section>}
+ {tab==='Laporan'&&(()=>{const reportSales=sales.filter(s=>(!reportFrom||s.createdAt.slice(0,10)>=reportFrom)&&(!reportTo||s.createdAt.slice(0,10)<=reportTo)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));const total=reportSales.reduce((a,s)=>a+s.total,0);return <section className="panel"><div className="panel-head"><h3>Riwayat penjualan</h3><b>Omzet: {money(total)}</b></div><div className="report-tools"><label>Dari tanggal<input type="date" value={reportFrom} onChange={e=>setReportFrom(e.target.value)}/></label><label>Sampai tanggal<input type="date" value={reportTo} onChange={e=>setReportTo(e.target.value)}/></label><button className="primary" disabled={pdfBusy||!reportSales.length} onClick={()=>void downloadReportPDF(reportSales)}><Download size={16}/> {pdfBusy?'Membuat PDF…':'Cetak laporan PDF'}</button></div><p className="report-summary">{reportSales.length} transaksi · Omzet {money(total)} · Estimasi laba {money(reportSales.reduce((a,s)=>a+s.items.reduce((b,i)=>b+(i.price-i.cost)*i.qty,0),0))}</p>{reportSales.map((sale,i)=><div className="report-row" key={sale.id??sale.createdAt+i}><div><b>{pdfDate(sale.createdAt)}</b><small>{sale.items.map(x=>x.name+' ×'+x.qty).join(', ')}</small><strong>{money(sale.total)}</strong></div><button className="soft-btn" disabled={pdfBusy} onClick={()=>void downloadReceiptPDF(sale)}><Download size={15}/> Struk PDF</button></div>)}</section>})()}
  {tab==='Pengaturan'&&<section className="panel"><h3>Backup & pemulihan data</h3><p>Backup lengkap mencakup master produk, transaksi, dan mutasi stok. Simpan salinan di luar perangkat secara berkala.</p><div className="panel-head"><button className="primary" disabled={busy} onClick={()=>void backupAll()}><Download size={16}/> Backup lengkap (JSON)</button><label className="soft-btn upload"><FileUp size={16}/> Pulihkan backup<input type="file" accept=".json,application/json" disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(file)void restoreAll(file);e.currentTarget.value=''}}/></label></div><button className="soft-btn" disabled={busy} onClick={exportCSV}><Download size={16}/> Ekspor master produk CSV</button>{busy&&<p>Memproses data, jangan tutup aplikasi...</p>}<div className="notice"><WifiOff/><div><b>Database lokal perangkat</b><p>Backup JSON adalah salinan pemulihan penuh. CSV hanya berisi master produk, bukan transaksi. Pemulihan mengganti data lokal saat ini. Sinkronisasi cloud belum tersedia.</p></div></div></section>}
  </main>{scan&&<div className="modal"><div className="scan-card"><div id="barcode-reader"/><button className="soft-btn" onClick={()=>setScan(false)}>Tutup pemindai</button></div></div>}</div>
 }
