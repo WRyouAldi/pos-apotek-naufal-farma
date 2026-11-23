@@ -257,16 +257,27 @@ export default function App(){
  }
  const pdfDate=(value:string)=>new Date(value).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'});
  async function savePDF(doc:jsPDF,filename:string){
+  const blob=doc.output('blob');
+  if(blob.size<100||blob.type!=='application/pdf')throw new Error('Dokumen PDF kosong atau tidak valid.');
+  const bytes=new Uint8Array(await blob.arrayBuffer());
+  if(String.fromCharCode(...bytes.subarray(0,5))!=='%PDF-')throw new Error('Format file PDF tidak valid.');
   if(Capacitor.isNativePlatform()){
-   const data=doc.output('datauristring').split(',')[1];
-   const file=await Filesystem.writeFile({path:filename,data,directory:Directory.Cache,recursive:true});
-   await Share.share({title:'Dokumen PDF Apotek Naufal Farma',text:'PDF siap disimpan atau dibagikan.',url:file.uri,dialogTitle:'Simpan laporan PDF'});
-   setNotice('PDF berhasil dibuat. Pilih aplikasi tujuan untuk menyimpan dokumen.');
+   let binary='';
+   for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+   const file=await Filesystem.writeFile({path:filename,data:btoa(binary),directory:Directory.Cache,recursive:true});
+   try{
+    await Share.share({title:'PDF Apotek Naufal Farma',text:'Pilih Files atau Simpan ke perangkat untuk menyimpan PDF, atau pilih aplikasi lain untuk membagikannya.',url:file.uri,dialogTitle:'Simpan atau bagikan PDF'});
+    setNotice('PDF sudah dibuat. Periksa aplikasi tujuan untuk memastikan file tersimpan atau terkirim.');
+   }catch(error){
+    setNotice('PDF berhasil dibuat sementara, tetapi menu berbagi gagal dibuka. Coba lagi atau periksa izin aplikasi.');
+    throw error;
+   }
    return;
   }
-  const blob=doc.output('blob'),url=URL.createObjectURL(blob),a=document.createElement('a');
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=filename;a.style.display='none';document.body.appendChild(a);a.click();a.remove();
   window.setTimeout(()=>URL.revokeObjectURL(url),10000);
+  setNotice('PDF sudah disiapkan. Periksa folder Unduhan pada perangkat.');
  }
  async function downloadReceiptPDF(sale:Sale){
   setPdfBusy(true);
