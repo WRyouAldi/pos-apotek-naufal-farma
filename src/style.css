@@ -155,3 +155,34 @@ td{padding:13px 14px;border-top:1px solid #eaf0f6;color:#425b78}tbody tr:hover{b
 .nav-submenu{position:fixed;top:auto;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:125;min-width:0;margin:0}
 .main{padding-bottom:calc(125px + env(safe-area-inset-bottom))}
 @media(max-width:390px){.nav{padding:7px 0;font-size:8px}.nav svg{width:17px;height:17px}}
+
+
+/* Visual assets & motion layer: lightweight CSS illustrations, no remote images. */
+.welcome{isolation:isolate;min-height:190px}
+.welcome:before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(circle at 80% 50%,rgba(125,225,255,.24),transparent 28%),linear-gradient(120deg,transparent 45%,rgba(255,255,255,.05))}
+.welcome .eyebrow{display:flex;align-items:center;gap:7px}
+.welcome-badges{display:flex;gap:8px;margin-top:16px}
+.welcome-badges span{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #ffffff35;border-radius:999px;background:#ffffff12;color:#d8f2ff;font-size:10px;font-weight:700}
+.welcome-art{position:relative;display:grid;place-items:center;width:190px;height:150px;flex:none}
+.art-orbit{position:absolute;width:125px;height:125px;border:1px solid #c9f4ff45;border-radius:38%;animation:orbit-turn 18s linear infinite}
+.orbit-two{width:160px;height:95px;border-radius:50%;transform:rotate(-32deg);animation:orbit-turn 24s linear infinite reverse}
+.art-capsule{display:grid;place-items:center;width:88px;height:88px;border:1px solid #ffffff65;border-radius:28px;background:linear-gradient(145deg,#d8faff55,#ffffff12);color:#c5f4ff;box-shadow:inset 0 1px #ffffff80,0 16px 38px #031a3650;backdrop-filter:blur(12px);animation:float-gentle 4s ease-in-out infinite}
+.art-spark{position:absolute;color:#d7f8ff;font-size:25px;animation:spark-pulse 2.8s ease-in-out infinite}
+.spark-one{right:14px;top:12px}.spark-two{left:12px;bottom:14px;animation-delay:.8s}
+.stat-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.stat-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:13px;background:#e8f4ff;color:#1769c2;font-style:normal;transition:transform .28s var(--ease)}
+.stat-icon-1{background:#e5f8f5;color:#16866d}.stat-icon-2{background:#f0ebff;color:#7554bd}.stat-icon-3{background:#fff3e6;color:#c17b28}
+.stat:hover .stat-icon{transform:translateY(-3px) rotate(-5deg)}
+.panel-head h3{display:flex;align-items:center;gap:8px}
+.section-count{display:inline-grid;place-items:center;min-width:25px;height:25px;padding:0 7px;border-radius:99px;background:#e8f4ff;color:#1769c2;font-size:11px;font-weight:800}
+.product-pick{transition:background .2s var(--ease),padding .2s var(--ease),transform .2s var(--ease)}
+.product-pick:active{transform:scale(.99)}
+.nav svg,.panel-head svg,.primary svg,.soft-btn svg{flex:none;transition:transform .22s var(--ease)}
+.nav.active svg{filter:drop-shadow(0 0 6px #8be2f6a0);animation:icon-pop .28s var(--ease)}
+.primary:active svg{transform:scale(.88)}
+@keyframes orbit-turn{to{rotate:360deg}}
+@keyframes float-gentle{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-8px) rotate(3deg)}}
+@keyframes spark-pulse{0%,100%{opacity:.45;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}
+@keyframes icon-pop{from{transform:scale(.72)}to{transform:scale(1)}}
+@media(max-width:700px){.welcome{min-height:155px}.welcome-art{width:118px;height:118px;transform:scale(.84);transform-origin:center right}.art-orbit{width:100px;height:100px}.orbit-two{width:126px;height:75px}.art-capsule{width:68px;height:68px}.art-capsule svg{width:38px;height:38px}.welcome h2{font-size:22px}.stat-icon{width:31px;height:31px}.stat strong{margin-top:7px}}
+@media(prefers-reduced-motion:reduce){.art-orbit,.art-capsule,.art-spark,.nav.active svg{animation:none!important}.stat-icon,.product-pick,.nav svg{transition:none!important}}
