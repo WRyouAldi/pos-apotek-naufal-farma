@@ -1,3 +1,6 @@
+@layer legacy, hallmark, apple;
+
+@layer legacy {
 /* Naufal Liquid Design System
    Unified visual tokens, progressive glass surfaces and mobile-first motion.
    Operational controls stay high-contrast for safe pharmacy transactions. */
@@ -797,4 +800,6 @@ html[data-theme="dark"] .master-row-actions .danger-btn{color:#ff9eae;border-col
  .product-form-grid{gap:10px}
  .product-form-actions{position:sticky;bottom:0;background:var(--glass-card);padding:10px 0 calc(4px + env(safe-area-inset-bottom))}
  .product-form-actions .ui-button{flex:1}
+}
+
 }
