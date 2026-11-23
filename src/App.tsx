@@ -9,6 +9,32 @@ type Tab='Dashboard'|'Kasir'|'Cek Harga'|'Barang'|'Barang Masuk'|'Barang Keluar'
 const localDate=(d=new Date())=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+day};
 const money=(n:number)=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n||0);
 const num=(v:unknown)=>Number(String(v??'0').replace(/[^0-9-]/g,''))||0;
+function parseMasterCSV(raw:string){
+ const lines=raw.replace(/^\uFEFF/,'').split(/\r\n|\n|\r/);
+ const headerAt=lines.findIndex(line=>/kode\s*item/i.test(line)&&/nama\s*item/i.test(line));
+ if(headerAt<0)throw new Error('Header CSV tidak ditemukan. Pastikan ada kolom Kode Item dan Nama Item.');
+ const headerLine=lines[headerAt];
+ const delimiter=headerLine.includes(';')?';':headerLine.includes('\t')?'\t':',';
+ const normalized=[headerLine];let repaired=0;
+ for(const line of lines.slice(headerAt+1)){
+  if(!line.trim())continue;
+  const fields=Papa.parse<string[]>(line,{header:false,delimiter,skipEmptyLines:false}).data[0]??[];
+  if(fields.length===25){
+   normalized.push(Papa.unparse([fields.slice(0,12).concat(''),fields.slice(12)],{delimiter}));
+   repaired++;
+  }else normalized.push(line);
+ }
+ const parsed=Papa.parse<Record<string,string>>(normalized.join('\n'),{
+  header:true,delimiter,skipEmptyLines:'greedy',
+  transformHeader:h=>h.replace(/^\uFEFF/,'').trim().toLowerCase()
+ });
+ if(parsed.errors.length)throw new Error('Format CSV tidak valid pada baris '+(headerAt+1+parsed.errors[0].row)+'. Periksa pemisah dan tanda kutip.');
+ const headers=Object.keys(parsed.data[0]??{});
+ if(!headers.includes('kode item')&&!headers.includes('kode'))throw new Error('Kolom Kode Item/Kode tidak ditemukan.');
+ if(!headers.includes('nama item')&&!headers.includes('nama'))throw new Error('Kolom Nama Item/Nama tidak ditemukan.');
+ return {data:parsed.data,headerAt,repaired};
+}
+
 export default function App(){
  const [tab,setTab]=useState<Tab>('Dashboard'),[reportFrom,setReportFrom]=useState(''),[reportTo,setReportTo]=useState(''),[pdfBusy,setPdfBusy]=useState(false),[openMenu,setOpenMenu]=useState<'Produk'|'Persediaan'|null>(null),[products,setProducts]=useState<Product[]>([]),[sales,setSales]=useState<Sale[]>([]),[moves,setMoves]=useState<Movement[]>([]),[query,setQuery]=useState(''),[cart,setCart]=useState<{p:Product,qty:number}[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[scan,setScan]=useState(false),[stockDialog,setStockDialog]=useState<'MASUK'|'KELUAR'|null>(null),[stockQty,setStockQty]=useState(''),[syncing,setSyncing]=useState(false),[syncState,setSyncState]=useState<'online'|'offline'|'syncing'|'error'>('offline'),[lastSync,setLastSync]=useState(''); const syncLock=useRef(false); const scannerRef=useRef<Html5Qrcode|null>(null),scanTimerRef=useRef<number|undefined>(undefined);
  async function refresh(){setProducts(await db.products.toArray());setSales(await db.sales.toArray());setMoves(await db.movements.toArray())}
@@ -18,15 +44,22 @@ export default function App(){
   if(!navigator.onLine){setSyncState('offline');return}
   syncLock.current=true;setSyncing(true);setSyncState('syncing');
   try{
-   const url='https://raw.githubusercontent.com/WRyouAldi/pos-apotek-naufal-farma/main/public/data/xReport2.csv?sync='+Date.now();
-   const response=await fetch(url,{cache:'no-store'});
-   if(!response.ok)throw new Error('GitHub CSV merespons '+response.status);
-   const raw=await response.text(),lines=raw.replace(/^\uFEFF/,'').split(/\r?\n/);
-   const headerAt=lines.findIndex(line=>/kode\s*item/i.test(line)&&/nama\s*item/i.test(line));
-   if(headerAt<0)throw new Error('Header produk tidak ditemukan pada CSV GitHub.');
-   const header=lines[headerAt],delimiter=header.includes(';')?';':header.includes('\t')?'\t':',';
-   const parsed=Papa.parse<Record<string,string>>(lines.slice(headerAt).join('\n'),{header:true,delimiter,skipEmptyLines:'greedy',transformHeader:h=>h.replace(/^\uFEFF/,'').trim().toLowerCase()});
-   if(parsed.errors.length)throw new Error('Format CSV GitHub tidak valid.');
+   let raw='';
+   const controller=new AbortController(),timeout=window.setTimeout(()=>controller.abort(),20000);
+   try{
+    const url='https://raw.githubusercontent.com/WRyouAldi/pos-apotek-naufal-farma/main/public/data/xReport2.csv?sync='+Date.now();
+    const response=await fetch(url,{cache:'no-store',signal:controller.signal});
+    if(!response.ok)throw new Error('GitHub raw merespons '+response.status);
+    raw=await response.text();
+   }catch(rawError){
+    const response=await fetch('https://api.github.com/repos/WRyouAldi/pos-apotek-naufal-farma/contents/public/data/xReport2.csv?ref=main',{cache:'no-store',headers:{Accept:'application/vnd.github+json'}});
+    if(!response.ok)throw new Error('GitHub tidak dapat diakses ('+response.status+'). '+(rawError instanceof Error?rawError.message:''));
+    const payload=await response.json() as {content?:string;encoding?:string};
+    if(!payload.content||payload.encoding!=='base64')throw new Error('Isi CSV GitHub tidak dapat dibaca.');
+    const binary=atob(payload.content.replace(/\s/g,''));
+    raw=new TextDecoder().decode(Uint8Array.from(binary,ch=>ch.charCodeAt(0)));
+   }finally{window.clearTimeout(timeout)}
+   const parsed=parseMasterCSV(raw);
    const seen=new Set<string>(),incoming:Product[]=[];
    for(const row of parsed.data){
     const get=(...keys:string[])=>{const k=Object.keys(row).find(x=>keys.includes(x));return k?String(row[k]??'').trim():''};
@@ -48,7 +81,7 @@ export default function App(){
     }
    });
    await refresh();setLastSync(new Date().toISOString());setSyncState('online');
-   if(showFeedback)setNotice('Sinkronisasi GitHub berhasil: '+incoming.length+' produk diperiksa.');
+   if(showFeedback)setNotice('Sinkronisasi GitHub berhasil: '+incoming.length+' produk diperiksa.'+(parsed.repaired?' · '+parsed.repaired+' baris CSV dirapikan.':''));
   }catch(e){
    setSyncState(navigator.onLine?'error':'offline');
    if(showFeedback)setNotice('Sync GitHub gagal. Data lokal tetap digunakan: '+(e instanceof Error?e.message:String(e)));
@@ -123,27 +156,16 @@ export default function App(){
   setBusy(true);
   try{
    const raw=await file.text();
-   const lines=raw.replace(/^\\uFEFF/,'').split(/\\r?\\n/);
-   const headerAt=lines.findIndex(line=>/kode\\s*item|kode/i.test(line)&&/nama\\s*item|nama/i.test(line));
-   if(headerAt<0)throw new Error('Header CSV tidak ditemukan. Pastikan ada kolom Kode Item dan Nama Item.');
-   const headerLine=lines[headerAt];
-   const delimiter=headerLine.includes(';')?';':headerLine.includes('\\t')?'\\t':',';
-   const parsed=Papa.parse<Record<string,string>>(lines.slice(headerAt).join('\\n'),{
-    header:true,delimiter,skipEmptyLines:'greedy',
-    transformHeader:h=>h.replace(/^\\uFEFF/,'').trim().toLowerCase()
-   });
-   if(parsed.errors.length)throw new Error('CSV memiliki kesalahan format pada baris '+(headerAt+1+parsed.errors[0].row)+'. Periksa pemisah dan tanda kutip.');
+   const parsed=parseMasterCSV(raw);
    const rows=parsed.data.filter(row=>Object.values(row).some(v=>String(v??'').trim()!==''));
    if(!rows.length)throw new Error('File CSV tidak memiliki data produk.');
-   const headers=Object.keys(rows[0]??{});
-   if(!headers.some(h=>['kode item','kode'].includes(h))||!headers.some(h=>['nama item','nama'].includes(h)))throw new Error('Kolom Kode Item/Kode dan Nama Item/Nama wajib tersedia.');
    const seen=new Set<string>(),list:Product[]=[];
    for(let i=0;i<rows.length;i++){
     const x=rows[i];
     const get=(...keys:string[])=>{const k=Object.keys(x).find(a=>keys.includes(a));return k?String(x[k]??'').trim():''};
     const code=get('kode item','kode'),name=get('nama item','nama');
     if((!code&&!name)||(code==='.'&&name==='.'))continue;
-    const lineNumber=headerAt+i+2;
+    const lineNumber=parsed.headerAt+i+2;
     if(!code||!name)throw new Error('Baris '+lineNumber+': kode dan nama wajib diisi.');
     if(seen.has(code))throw new Error('Kode duplikat di CSV: '+code);
     seen.add(code);
@@ -162,7 +184,7 @@ export default function App(){
    await db.transaction('rw',db.products,async()=>{
     for(const p of list){const old=byCode.get(p.code);if(old?.id)await db.products.update(old.id,p);else await db.products.add(p)}
    });
-   await refresh();setNotice('Impor berhasil: '+list.length+' produk. Kode yang sama diperbarui; produk lain dipertahankan.');
+   await refresh();setNotice('Impor berhasil: '+list.length+' produk.'+(parsed.repaired?' · '+parsed.repaired+' baris CSV dirapikan.':'')+' Kode yang sama diperbarui; produk lain dipertahankan.');
   }catch(e){setNotice('Impor CSV dibatalkan: '+(e instanceof Error?e.message:String(e)))}
   finally{setBusy(false)}
  }
