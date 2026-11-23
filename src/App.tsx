@@ -2,7 +2,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import Papa from 'papaparse';
 import {jsPDF} from 'jspdf';
 import {db,type Product,type Sale,type Movement} from './db';
-import {Activity,ArrowDownToLine,ArrowUpFromLine,BarChart3,Boxes,Camera,ChevronDown,Home,Package,Search,Settings,ShoppingCart,ShoppingBag,Upload,WifiOff,Download,FileUp,Sparkles,Pill,TrendingUp,AlertTriangle,PackageCheck,ScanLine,ClipboardList,ShieldCheck} from 'lucide-react';
+import {Activity,ArrowDownToLine,ArrowUpFromLine,BarChart3,Boxes,Camera,ChevronDown,Home,Package,Search,Settings,ShoppingCart,ShoppingBag,Upload,WifiOff,Download,FileUp,Sparkles,Pill,TrendingUp,AlertTriangle,PackageCheck,ScanLine,ClipboardList,ShieldCheck,Cloud,RefreshCw} from 'lucide-react';
 import {Html5Qrcode} from 'html5-qrcode';
 import {UiButton,UiInput,UiModal} from './ui';
 type Tab='Dashboard'|'Kasir'|'Cek Harga'|'Barang'|'Barang Masuk'|'Barang Keluar'|'Laporan'|'Pengaturan';
@@ -10,32 +10,58 @@ const localDate=(d=new Date())=>{const y=d.getFullYear(),m=String(d.getMonth()+1
 const money=(n:number)=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n||0);
 const num=(v:unknown)=>Number(String(v??'0').replace(/[^0-9-]/g,''))||0;
 export default function App(){
- const [tab,setTab]=useState<Tab>('Dashboard'),[reportFrom,setReportFrom]=useState(''),[reportTo,setReportTo]=useState(''),[pdfBusy,setPdfBusy]=useState(false),[openMenu,setOpenMenu]=useState<'Produk'|'Persediaan'|null>(null),[products,setProducts]=useState<Product[]>([]),[sales,setSales]=useState<Sale[]>([]),[moves,setMoves]=useState<Movement[]>([]),[query,setQuery]=useState(''),[cart,setCart]=useState<{p:Product,qty:number}[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[scan,setScan]=useState(false),[stockDialog,setStockDialog]=useState<'MASUK'|'KELUAR'|null>(null),[stockQty,setStockQty]=useState(''); const scannerRef=useRef<Html5Qrcode|null>(null),scanTimerRef=useRef<number|undefined>(undefined);
+ const [tab,setTab]=useState<Tab>('Dashboard'),[reportFrom,setReportFrom]=useState(''),[reportTo,setReportTo]=useState(''),[pdfBusy,setPdfBusy]=useState(false),[openMenu,setOpenMenu]=useState<'Produk'|'Persediaan'|null>(null),[products,setProducts]=useState<Product[]>([]),[sales,setSales]=useState<Sale[]>([]),[moves,setMoves]=useState<Movement[]>([]),[query,setQuery]=useState(''),[cart,setCart]=useState<{p:Product,qty:number}[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[scan,setScan]=useState(false),[stockDialog,setStockDialog]=useState<'MASUK'|'KELUAR'|null>(null),[stockQty,setStockQty]=useState(''),[syncing,setSyncing]=useState(false),[syncState,setSyncState]=useState<'online'|'offline'|'syncing'|'error'>('offline'),[lastSync,setLastSync]=useState(''); const syncLock=useRef(false); const scannerRef=useRef<Html5Qrcode|null>(null),scanTimerRef=useRef<number|undefined>(undefined);
  async function refresh(){setProducts(await db.products.toArray());setSales(await db.sales.toArray());setMoves(await db.movements.toArray())}
- async function seedProductsFromCSV(){
-  if(await db.products.count()>0)return;
-  const response=await fetch('data/xReport2.csv');
-  if(!response.ok)throw new Error('File master CSV belum tersedia di aplikasi.');
-  const raw=await response.text(),lines=raw.split(/\r?\n/);
-  const headerAt=lines.findIndex(line=>/Kode Item/i.test(line)&&/Nama Item/i.test(line));
-  if(headerAt<0)throw new Error('Header Kode Item dan Nama Item tidak ditemukan.');
-  const parsed=Papa.parse<Record<string,string>>(lines.slice(headerAt).join('\n'),{header:true,delimiter:';',skipEmptyLines:'greedy',transformHeader:h=>h.replace(/^\uFEFF/,'').trim().toLowerCase()});
-  if(parsed.errors.length)throw new Error('Format master CSV tidak valid.');
-  const seen=new Set<string>(),items:Product[]=[];
-  for(const row of parsed.data){
-   const get=(...keys:string[])=>{const k=Object.keys(row).find(x=>keys.includes(x));return k?String(row[k]??'').trim():''};
-   const code=get('kode item','kode'),name=get('nama item','nama');
-   if(!code||!name||(code==='.'&&name==='.')||seen.has(code))continue;
-   seen.add(code);
-   const value=(...keys:string[])=>{const v=get(...keys);return Number(v.replace(/[^0-9-]/g,''))||0};
-   const stock=value('stok'),buyPrice=value('harga beli'),sellPrice=value('harga jual'),minStock=value('stok min');
-   if(buyPrice<0||sellPrice<0||minStock<0)continue;
-   items.push({code,barcode:get('kode barcode','barcode'),name,category:get('jenis','kategori'),brand:get('merek','brand'),stock,unit:get('satuan')||'pcs',buyPrice,sellPrice,minStock,shelf:get('rak'),supplier:get('supplier')});
-  }
-  if(!items.length)throw new Error('Tidak ada produk valid pada master CSV.');
-  await db.transaction('rw',db.products,async()=>{if(await db.products.count()===0)await db.products.bulkAdd(items)});
+
+ async function syncCloudCSV(){
+  if(syncLock.current)return;
+  if(!navigator.onLine){setSyncState('offline');return}
+  syncLock.current=true;setSyncing(true);setSyncState('syncing');
+  try{
+   const url='https://raw.githubusercontent.com/WRyouAldi/pos-apotek-naufal-farma/main/public/data/xReport2.csv?sync='+Date.now();
+   const response=await fetch(url,{cache:'no-store'});
+   if(!response.ok)throw new Error('GitHub CSV merespons '+response.status);
+   const raw=await response.text(),lines=raw.replace(/^\uFEFF/,'').split(/\r?\n/);
+   const headerAt=lines.findIndex(line=>/kode\s*item/i.test(line)&&/nama\s*item/i.test(line));
+   if(headerAt<0)throw new Error('Header produk tidak ditemukan pada CSV GitHub.');
+   const header=lines[headerAt],delimiter=header.includes(';')?';':header.includes('\t')?'\t':',';
+   const parsed=Papa.parse<Record<string,string>>(lines.slice(headerAt).join('\n'),{header:true,delimiter,skipEmptyLines:'greedy',transformHeader:h=>h.replace(/^\uFEFF/,'').trim().toLowerCase()});
+   if(parsed.errors.length)throw new Error('Format CSV GitHub tidak valid.');
+   const seen=new Set<string>(),incoming:Product[]=[];
+   for(const row of parsed.data){
+    const get=(...keys:string[])=>{const k=Object.keys(row).find(x=>keys.includes(x));return k?String(row[k]??'').trim():''};
+    const code=get('kode item','kode'),name=get('nama item','nama');
+    if(!code||!name||(code==='.'&&name==='.')||seen.has(code))continue;
+    seen.add(code);
+    const value=(...keys:string[])=>{const v=get(...keys);return Number(v.replace(/[^0-9-]/g,''))||0};
+    const stock=value('stok'),buyPrice=value('harga beli'),sellPrice=value('harga jual'),minStock=value('stok min');
+    if(buyPrice<0||sellPrice<0||minStock<0)continue;
+    incoming.push({code,barcode:get('kode barcode','barcode'),name,category:get('jenis','kategori'),brand:get('merek','brand'),stock,unit:get('satuan')||'pcs',buyPrice,sellPrice,minStock,shelf:get('rak'),supplier:get('supplier')});
+   }
+   if(!incoming.length)throw new Error('CSV GitHub tidak berisi produk valid.');
+   const existing=await db.products.toArray(),byCode=new Map(existing.map(p=>[p.code,p]));
+   await db.transaction('rw',db.products,async()=>{
+    for(const item of incoming){
+     const old=byCode.get(item.code);
+     if(old&&old.id)await db.products.update(old.id,{...item,stock:old.stock});
+     else await db.products.add(item);
+    }
+   });
+   await refresh();setLastSync(new Date().toISOString());setSyncState('online');
+   setNotice('Sinkronisasi GitHub berhasil: '+incoming.length+' produk diperiksa.');
+  }catch(e){
+   setSyncState(navigator.onLine?'error':'offline');
+   setNotice('Sync GitHub gagal. Data lokal tetap digunakan: '+(e instanceof Error?e.message:String(e)));
+  }finally{syncLock.current=false;setSyncing(false)}
  }
- useEffect(()=>{void (async()=>{try{await seedProductsFromCSV()}catch(e){setNotice('Master CSV: '+(e instanceof Error?e.message:String(e)))}finally{await refresh()}})()},[]);
+ useEffect(()=>{
+  void (async()=>{await refresh();await syncCloudCSV()})();
+  const online=()=>void syncCloudCSV();
+  const visible=()=>{if(document.visibilityState==='visible')void syncCloudCSV()};
+  const timer=window.setInterval(()=>void syncCloudCSV(),15*60*1000);
+  window.addEventListener('online',online);document.addEventListener('visibilitychange',visible);
+  return()=>{window.clearInterval(timer);window.removeEventListener('online',online);document.removeEventListener('visibilitychange',visible)};
+ },[]);
  useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),3200);return()=>clearTimeout(t)},[notice]);
  useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if(e.key==='Escape'){setOpenMenu(null);if(scan)void stopScan();if(stockDialog)setStockDialog(null)}};const onPointer=(e:PointerEvent)=>{if(!(e.target as HTMLElement)?.closest('.nav-item'))setOpenMenu(null)};document.addEventListener('keydown',onKey);document.addEventListener('pointerdown',onPointer);return()=>{document.removeEventListener('keydown',onKey);document.removeEventListener('pointerdown',onPointer)}},[scan,stockDialog]);
  const filtered=useMemo(()=>products.filter(p=>[p.name,p.code,p.barcode].some(v=>(v||'').toLowerCase().includes(query.trim().toLowerCase()))),[products,query]);
@@ -214,7 +240,7 @@ export default function App(){
  const exportCSV=()=>{const csv=Papa.unparse(products.map(p=>({'Kode Item':p.code,'Kode Barcode':p.barcode,'Nama Item':p.name,'Jenis':p.category,'Merek':p.brand,'Stok':p.stock,'Satuan':p.unit,'Harga Beli':p.buyPrice,'Harga Jual':p.sellPrice,'Stok Min':p.minStock,'Rak':p.shelf,'Supplier':p.supplier})));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='backup-produk.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)};
  return <div className="app"><nav className="topbar" aria-label="Navigasi utama">
  <div className="brand"><span className="brandmark">N</span><div><b>NAUFAL FARMA</b><small>POINT OF SALE</small></div></div>
- <span className="top-status"><span className="dot"/>Lokal</span>
+ <span className="top-status"><span className="dot"/>{syncState==='syncing'?'Sync…':syncState==='online'?'Cloud aktif':syncState==='error'?'Sync gagal':'Offline lokal'}</span>
 </nav>
  <div className="nav-menu" aria-label="Navigasi utama">
   <button className={'nav '+(tab==='Dashboard'?'active':'')} onClick={()=>{setTab('Dashboard');setQuery('');setOpenMenu(null)}}><Home/><span>Dashboard</span></button>
@@ -236,12 +262,12 @@ export default function App(){
   <button className={'nav '+(tab==='Laporan'?'active':'')} onClick={()=>{setTab('Laporan');setQuery('');setOpenMenu(null)}}><BarChart3/><span>Laporan</span></button>
   <button className={'nav '+(tab==='Pengaturan'?'active':'')} onClick={()=>{setTab('Pengaturan');setQuery('');setOpenMenu(null)}}><Settings/><span>Pengaturan</span></button>
  </div>
- <main className="main"><header><div><span className="eyebrow">APOTEK NAUFAL FARMA</span><h1>{tab}</h1></div><span className="online"><WifiOff size={15}/> Data lokal</span></header>{notice&&<div className="toast">{notice}</div>}
+ <main className="main"><header><div><span className="eyebrow">APOTEK NAUFAL FARMA</span><h1>{tab}</h1></div><span className="online">{syncState==='online'?<Cloud size={15}/>:<WifiOff size={15}/>} {syncState==='syncing'?'Sinkronisasi…':syncState==='online'?'Cloud tersinkron':syncState==='error'?'Sync gagal · data lokal':'Mode offline'}</span></header>{notice&&<div className="toast">{notice}</div>}
  {tab==='Dashboard'&&<><section className="welcome"><div><span className="eyebrow"><Sparkles size={13}/> RINGKASAN</span><h2>Apotek dalam<br/>satu sentuhan.</h2><div className="welcome-badges"><span><ShieldCheck size={13}/> Lokal</span><span><Activity size={13}/> Aktif</span></div></div><div className="welcome-art" aria-hidden="true"><div className="art-orbit orbit-one"/><div className="art-orbit orbit-two"/><div className="art-capsule"><Pill size={48}/></div><span className="art-spark spark-one">✦</span><span className="art-spark spark-two">✧</span></div></section><div className="stats">{[['Produk',products.length,PackageCheck],['Omzet',money(revenue),TrendingUp],['Laba',money(profit),Activity],['Stok tipis',products.filter(p=>p.stock<=p.minStock).length,AlertTriangle]].map(([a,b,Icon]:any,i)=><div className="stat" key={String(a)}><div className="stat-top"><span>{a}</span><i className={"stat-icon stat-icon-"+i}><Icon size={18}/></i></div><strong>{b}</strong></div>)}</div><section className="panel"><div className="panel-head"><h3><AlertTriangle size={17}/> Stok perlu dicek</h3><span className="section-count">{products.filter(p=>p.stock<=p.minStock).length}</span></div>{products.filter(p=>p.stock<=p.minStock).slice(0,12).map(p=><p className="row" key={p.code}>{p.name} <b>{p.stock} {p.unit}</b></p>)}</section></>}
  {tab==='Kasir'&&<div className="grid-two"><section className="panel"><div className="panel-head"><h3><ShoppingBag size={17}/> Produk</h3><UiButton className="soft-btn" aria-label="Scan barcode" onClick={()=>void startScan()}><ScanLine size={17}/></UiButton></div><UiInput className="search" placeholder="Cari nama, kode, barcode..." value={query} onChange={e=>setQuery(e.target.value)}/>{filtered.slice(0,40).map(p=><button className="product-pick" key={p.code} disabled={p.stock<1} onClick={()=>add(p)}><span>{p.name}<small>{p.code} · Stok {p.stock}</small></span><b>{money(p.sellPrice)}</b></button>)}{!filtered.length&&<p className="empty-state">Produk tidak ditemukan.</p>}{filtered.length>40&&<p className="empty-state">Menampilkan 40 produk pertama. Persempit pencarian untuk hasil lainnya.</p>}</section><section className="panel"><h3><ShoppingCart size={17}/> Keranjang <span className="section-count">{cart.length}</span></h3>{!cart.length&&<p className="empty-state">Keranjang masih kosong. Pilih produk untuk memulai transaksi.</p>}{cart.map(x=><div className="cart-row" key={x.p.code}><div className="cart-info"><b>{x.p.name}</b><small>{money(x.p.sellPrice)} / {x.p.unit}</small></div><div className="qty-control"><button aria-label={'Kurangi '+x.p.name} onClick={()=>setCart(c=>c.map(y=>y.p.code===x.p.code?{...y,qty:Math.max(0,y.qty-1)}:y).filter(y=>y.qty>0))}>−</button><b>{x.qty}</b><button aria-label={'Tambah '+x.p.name} onClick={()=>add(x.p)}>+</button></div><strong>{money(x.qty*x.p.sellPrice)}</strong></div>)}<h2>{money(cart.reduce((a,x)=>a+x.qty*x.p.sellPrice,0))}</h2><button className="primary full checkout-btn" disabled={!cart.length||busy} onClick={()=>void checkout()}><ShoppingCart size={17}/>{busy?'Memproses…':'Bayar sekarang'}</button></section></div>}
  {(tab==='Cek Harga'||tab==='Barang')&&<section className="panel"><div className="panel-head"><h3>{tab==='Barang'?'Master barang':'Pencarian harga produk'}</h3>{tab==='Barang'&&<label className="soft-btn upload"><Upload size={16}/> Impor CSV<input type="file" accept=".csv,text/csv" disabled={busy} onChange={e=>{const file=e.target.files?.[0];e.currentTarget.value='';if(file)void importCSV(file)}}/></label>}</div><UiInput className="search" placeholder="Cari nama, kode, atau barcode..." value={query} onChange={e=>setQuery(e.target.value)}/><div className="table-wrap"><table><thead><tr><th>Nama</th><th>Kode</th><th>Stok</th><th>Harga beli</th><th>Harga jual</th></tr></thead><tbody>{filtered.slice(0,60).map(p=><tr key={p.code}><td>{p.name}</td><td>{p.code}</td><td>{p.stock} {p.unit}</td><td>{tab==='Barang'?money(p.buyPrice):'—'}</td><td>{money(p.sellPrice)}</td></tr>)}{!filtered.length&&<tr><td colSpan={5} className="empty-state">Produk tidak ditemukan.</td></tr>}</tbody></table></div>{filtered.length>60&&<p className="empty-state">Menampilkan 60 produk pertama. Gunakan pencarian untuk mempersempit hasil.</p>}</section>}
  {(tab==='Barang Masuk'||tab==='Barang Keluar')&&<section className="panel"><h3>{tab}</h3><UiInput className="search" placeholder="Kode item atau barcode" value={query} onChange={e=>setQuery(e.target.value)}/><p>{products.find(p=>p.code===query||p.barcode===query)?.name||'Masukkan kode produk yang tepat.'}</p><button className="primary" onClick={()=>{setStockQty('');setStockDialog(tab==='Barang Masuk'?'MASUK':'KELUAR')}}>Catat mutasi</button><h3>Riwayat mutasi</h3>{moves.filter(m=>m.type===(tab==='Barang Masuk'?'MASUK':'KELUAR')).slice(-30).reverse().map((m,i)=><p className="row" key={i}>{m.createdAt.slice(0,16)} · {m.name} · {m.qty}</p>)}</section>}
  {tab==='Laporan'&&(()=>{const reportSales=sales.filter(s=>(!reportFrom||localDate(new Date(s.createdAt))>=reportFrom)&&(!reportTo||localDate(new Date(s.createdAt))<=reportTo)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));const total=reportSales.reduce((a,s)=>a+s.total,0);return <section className="panel"><div className="panel-head"><h3>Riwayat penjualan</h3><b>Omzet: {money(total)}</b></div><div className="report-tools"><label>Dari tanggal<input type="date" value={reportFrom} onChange={e=>setReportFrom(e.target.value)}/></label><label>Sampai tanggal<input type="date" value={reportTo} onChange={e=>setReportTo(e.target.value)}/></label><button className="primary" disabled={pdfBusy||!reportSales.length} onClick={()=>void downloadReportPDF(reportSales)}><Download size={16}/> {pdfBusy?'Membuat PDF…':'Cetak laporan PDF'}</button></div><p className="report-summary">{reportSales.length} transaksi · Omzet {money(total)} · Estimasi laba {money(reportSales.reduce((a,s)=>a+s.items.reduce((b,i)=>b+(i.price-i.cost)*i.qty,0),0))}</p>{reportSales.map((sale,i)=><div className="report-row" key={sale.id??sale.createdAt+i}><div><b>{pdfDate(sale.createdAt)}</b><small>{sale.items.map(x=>x.name+' ×'+x.qty).join(', ')}</small><strong>{money(sale.total)}</strong></div><button className="soft-btn" disabled={pdfBusy} onClick={()=>void downloadReceiptPDF(sale)}><Download size={15}/> Struk PDF</button></div>)}</section>})()}
- {tab==='Pengaturan'&&<section className="panel"><h3><ShieldCheck size={18}/> Data</h3><div className="panel-head"><button className="primary" disabled={busy} onClick={()=>void backupAll()}><Download size={16}/> Backup lengkap (JSON)</button><label className="soft-btn upload"><FileUp size={16}/> Pulihkan backup<input type="file" accept=".json,application/json" disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(file)void restoreAll(file);e.currentTarget.value=''}}/></label></div><button className="soft-btn" disabled={busy} onClick={exportCSV}><Download size={16}/> Ekspor master produk CSV</button>{busy&&<p>Memproses data, jangan tutup aplikasi...</p>}<div className="notice"><WifiOff/><div><b>Lokal · Offline</b></div></div></section>}
+ {tab==='Pengaturan'&&<section className="panel"><h3><Cloud size={18}/> Sinkronisasi database GitHub</h3><div className="notice"><Cloud/><div><b>{syncState==='syncing'?'Sedang mengambil CSV dari GitHub…':syncState==='online'?'Terhubung · master produk tersinkron':syncState==='error'?'Sinkronisasi gagal · data lokal tetap aman':'Offline · menggunakan data lokal'}</b><p>{lastSync?'Sinkron terakhir: '+new Date(lastSync).toLocaleString('id-ID'):'Belum ada sinkronisasi berhasil pada sesi ini.'}</p><p>Otomatis saat aplikasi dibuka, koneksi kembali aktif, aplikasi dibuka lagi, dan setiap 15 menit. Sinkron satu arah GitHub → aplikasi; tidak memerlukan token.</p></div></div><button className="primary" disabled={syncing||!navigator.onLine} onClick={()=>void syncCloudCSV()}><RefreshCw size={16}/> {syncing?'Menyinkronkan…':'Sinkronkan sekarang'}</button><h3><ShieldCheck size={18}/> Data lokal</h3><div className="panel-head"><button className="soft-btn" disabled={busy} onClick={()=>void backupAll()}><Download size={16}/> Backup lengkap (JSON)</button><label className="soft-btn upload"><FileUp size={16}/> Pulihkan backup<input type="file" accept=".json,application/json" disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(file)void restoreAll(file);e.currentTarget.value=''}}/></label></div><button className="soft-btn" disabled={busy} onClick={exportCSV}><Download size={16}/> Ekspor master produk CSV</button>{busy&&<p>Memproses data, jangan tutup aplikasi...</p>}</section>}}
  </main>{stockDialog&&<UiModal label={stockDialog==='MASUK'?'Barang masuk':'Barang keluar'} onClose={()=>setStockDialog(null)}><div className="stock-dialog"><h3>{stockDialog==='MASUK'?'Catat barang masuk':'Catat barang keluar'}</h3><p>{products.find(p=>p.code===query.trim()||p.barcode===query.trim())?.name}</p><UiInput autoFocus type="number" min="1" step="1" inputMode="numeric" placeholder="Jumlah unit" value={stockQty} onChange={e=>setStockQty(e.target.value)}/><UiButton variant="primary" className="full" disabled={busy||!Number.isSafeInteger(Number(stockQty))||Number(stockQty)<1} onClick={()=>void moveStock(stockDialog)}>Simpan mutasi</UiButton></div></UiModal>}{scan&&<UiModal label="Pemindai barcode" onClose={()=>void stopScan()}><div className="scan-card-content"><div id="barcode-reader"/><UiButton className="soft-btn full" onClick={()=>void stopScan()}>Tutup pemindai</UiButton></div></UiModal>}</div>
 }
