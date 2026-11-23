@@ -1,6 +1,9 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import Papa from 'papaparse';
 import {jsPDF} from 'jspdf';
+import {Capacitor} from '@capacitor/core';
+import {Directory,Filesystem} from '@capacitor/filesystem';
+import {Share} from '@capacitor/share';
 import {db,type Product,type Sale,type Movement} from './db';
 import {Activity,ArrowDownToLine,ArrowUpFromLine,BarChart3,Boxes,Camera,ChevronDown,Home,Package,Search,Settings,ShoppingCart,ShoppingBag,Upload,WifiOff,Download,FileUp,Sparkles,Pill,TrendingUp,AlertTriangle,PackageCheck,ScanLine,ClipboardList,ShieldCheck,Cloud,RefreshCw,Sun,Moon} from 'lucide-react';
 import {Html5Qrcode} from 'html5-qrcode';
@@ -253,6 +256,18 @@ export default function App(){
   finally{setBusy(false)}
  }
  const pdfDate=(value:string)=>new Date(value).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'});
+ async function savePDF(doc:jsPDF,filename:string){
+  if(Capacitor.isNativePlatform()){
+   const data=doc.output('datauristring').split(',')[1];
+   const file=await Filesystem.writeFile({path:filename,data,directory:Directory.Cache,recursive:true});
+   await Share.share({title:'Dokumen PDF Apotek Naufal Farma',text:'PDF siap disimpan atau dibagikan.',url:file.uri,dialogTitle:'Simpan laporan PDF'});
+   setNotice('PDF berhasil dibuat. Pilih aplikasi tujuan untuk menyimpan dokumen.');
+   return;
+  }
+  const blob=doc.output('blob'),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=filename;a.style.display='none';document.body.appendChild(a);a.click();a.remove();
+  window.setTimeout(()=>URL.revokeObjectURL(url),10000);
+ }
  async function downloadReceiptPDF(sale:Sale){
   setPdfBusy(true);
   try{
@@ -273,7 +288,7 @@ export default function App(){
    doc.line(margin,y,pageW-margin,y);y+=6;
    doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text('TOTAL',margin,y);doc.text(money(sale.total),pageW-margin,y,{align:'right'});y+=8;
    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text('Terima kasih telah berbelanja',pageW/2,y,{align:'center'});y+=4;doc.text('Semoga lekas sehat kembali.',pageW/2,y,{align:'center'});
-   doc.save('struk-naufal-farma-'+(sale.id??Date.now())+'.pdf');
+   await savePDF(doc,'struk-naufal-farma-'+(sale.id??Date.now())+'.pdf');
   }catch(e){setNotice('PDF struk gagal dibuat: '+String(e))}finally{setPdfBusy(false)}
  }
  async function downloadReportPDF(list:Sale[]){
@@ -295,7 +310,7 @@ export default function App(){
     if(y+rowH>280){doc.addPage();y=16;drawHead();doc.setFont('helvetica','normal')}
     doc.setFontSize(7.5);doc.text(pdfDate(sale.createdAt),left+2,y);doc.text(details,left+38,y);doc.text(money(sale.total),right-2,y,{align:'right'});y+=rowH+2;doc.setDrawColor(225,232,240);doc.line(left,y-1,right,y-1);
    }
-   doc.save('laporan-penjualan-naufal-farma-'+(reportFrom||'semua')+'-'+(reportTo||'terkini')+'.pdf');
+   await savePDF(doc,'laporan-penjualan-naufal-farma-'+(reportFrom||'semua')+'-'+(reportTo||'terkini')+'.pdf');
   }catch(e){setNotice('PDF laporan gagal dibuat: '+String(e))}finally{setPdfBusy(false)}
  }
  const exportCSV=()=>{const csv=Papa.unparse(products.map(p=>({'Kode Item':p.code,'Kode Barcode':p.barcode,'Nama Item':p.name,'Jenis':p.category,'Merek':p.brand,'Stok':p.stock,'Satuan':p.unit,'Harga Beli':p.buyPrice,'Harga Jual':p.sellPrice,'Stok Min':p.minStock,'Rak':p.shelf,'Supplier':p.supplier})));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='backup-produk.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)};
