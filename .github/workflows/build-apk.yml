@@ -22,7 +22,7 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps # Glass-HQ React entry is not used; vanilla API keeps the app on React 18
       - name: Build web app
         run: npm run build
       - name: Add Android platform
