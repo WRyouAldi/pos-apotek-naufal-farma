@@ -93,33 +93,52 @@ export default function App(){
   finally{setBusy(false);setStockDialog(null);setStockQty('')}
  }
  async function importCSV(file:File){
-  if(busy)return;setBusy(true);
-  Papa.parse<Record<string,string>>(file,{header:true,skipEmptyLines:'greedy',transformHeader:h=>h.replace(/^\uFEFF/,'').trim().toLowerCase(),complete:async r=>{
-   try{
-    if(r.errors.length)throw new Error('CSV memiliki kesalahan format. Periksa pemisah dan tanda kutip.');
-    const rows=r.data.filter(row=>Object.values(row).some(v=>String(v??'').trim()!==''));
-    if(!rows.length)throw new Error('File CSV kosong.');
-    const headers=Object.keys(rows[0]??{});
-    if(!headers.some(h=>['kode item','kode'].includes(h))||!headers.some(h=>['nama item','nama'].includes(h)))throw new Error('Kolom Kode Item/Kode dan Nama Item/Nama wajib tersedia.');
-    const seen=new Set<string>();
-    const list:Product[]=rows.map((x,i)=>{
-     const get=(...keys:string[])=>{const k=Object.keys(x).find(a=>keys.includes(a));return k?String(x[k]??'').trim():''};
-     const code=get('kode item','kode'),name=get('nama item','nama');
-     if(!code||!name)throw new Error('Baris '+(i+2)+': kode dan nama wajib diisi.');
-     if(seen.has(code))throw new Error('Kode duplikat di CSV: '+code);seen.add(code);
-     const val=(label:string,...keys:string[])=>{const raw=get(...keys);if(!raw)return 0;const n=Number(raw.replace(/[^0-9-]/g,''));if(!Number.isSafeInteger(n))throw new Error(label+' tidak valid pada baris '+(i+2));return n};
-     const stock=val('Stok','stok'),buyPrice=val('Harga Beli','harga beli'),sellPrice=val('Harga Jual','harga jual'),minStock=val('Stok Min','stok min');
-     if(buyPrice<0||sellPrice<0||minStock<0)throw new Error('Harga/stok minimum negatif pada baris '+(i+2));
-     return{code,barcode:get('kode barcode','barcode'),name,category:get('jenis','kategori'),brand:get('merek','brand'),stock,unit:get('satuan')||'pcs',buyPrice,sellPrice,minStock,shelf:get('rak'),supplier:get('supplier')};
-    });
-    const existing=await db.products.toArray(),byCode=new Map(existing.map(p=>[p.code,p]));
-    await db.transaction('rw',db.products,async()=>{
-     for(const p of list){const old=byCode.get(p.code);if(old?.id)await db.products.update(old.id,p);else await db.products.add(p)}
-    });
-    await refresh();setNotice('Impor berhasil: '+list.length+' produk. Kode yang sama diperbarui; produk lain dipertahankan.');
-   }catch(e){setNotice('Impor CSV dibatalkan: '+(e instanceof Error?e.message:String(e)))}
-   finally{setBusy(false)}
-  },error:()=>{setBusy(false);setNotice('File CSV tidak dapat dibaca.')}});
+  if(busy)return;
+  setBusy(true);
+  try{
+   const raw=await file.text();
+   const lines=raw.replace(/^\\uFEFF/,'').split(/\\r?\\n/);
+   const headerAt=lines.findIndex(line=>/kode\\s*item|kode/i.test(line)&&/nama\\s*item|nama/i.test(line));
+   if(headerAt<0)throw new Error('Header CSV tidak ditemukan. Pastikan ada kolom Kode Item dan Nama Item.');
+   const headerLine=lines[headerAt];
+   const delimiter=headerLine.includes(';')?';':headerLine.includes('\\t')?'\\t':',';
+   const parsed=Papa.parse<Record<string,string>>(lines.slice(headerAt).join('\\n'),{
+    header:true,delimiter,skipEmptyLines:'greedy',
+    transformHeader:h=>h.replace(/^\\uFEFF/,'').trim().toLowerCase()
+   });
+   if(parsed.errors.length)throw new Error('CSV memiliki kesalahan format pada baris '+(headerAt+1+parsed.errors[0].row)+'. Periksa pemisah dan tanda kutip.');
+   const rows=parsed.data.filter(row=>Object.values(row).some(v=>String(v??'').trim()!==''));
+   if(!rows.length)throw new Error('File CSV tidak memiliki data produk.');
+   const headers=Object.keys(rows[0]??{});
+   if(!headers.some(h=>['kode item','kode'].includes(h))||!headers.some(h=>['nama item','nama'].includes(h)))throw new Error('Kolom Kode Item/Kode dan Nama Item/Nama wajib tersedia.');
+   const seen=new Set<string>(),list:Product[]=[];
+   for(let i=0;i<rows.length;i++){
+    const x=rows[i];
+    const get=(...keys:string[])=>{const k=Object.keys(x).find(a=>keys.includes(a));return k?String(x[k]??'').trim():''};
+    const code=get('kode item','kode'),name=get('nama item','nama');
+    if((!code&&!name)||(code==='.'&&name==='.'))continue;
+    const lineNumber=headerAt+i+2;
+    if(!code||!name)throw new Error('Baris '+lineNumber+': kode dan nama wajib diisi.');
+    if(seen.has(code))throw new Error('Kode duplikat di CSV: '+code);
+    seen.add(code);
+    const val=(label:string,...keys:string[])=>{
+     const rawValue=get(...keys);if(!rawValue)return 0;
+     const n=Number(rawValue.replace(/[^0-9-]/g,''));
+     if(!Number.isSafeInteger(n))throw new Error(label+' tidak valid pada baris '+lineNumber);
+     return n;
+    };
+    const stock=val('Stok','stok'),buyPrice=val('Harga Beli','harga beli'),sellPrice=val('Harga Jual','harga jual'),minStock=val('Stok Min','stok min');
+    if(buyPrice<0||sellPrice<0||minStock<0)throw new Error('Harga/stok minimum negatif pada baris '+lineNumber);
+    list.push({code,barcode:get('kode barcode','barcode'),name,category:get('jenis','kategori'),brand:get('merek','brand'),stock,unit:get('satuan')||'pcs',buyPrice,sellPrice,minStock,shelf:get('rak'),supplier:get('supplier')});
+   }
+   if(!list.length)throw new Error('Tidak ada produk valid untuk diimpor.');
+   const existing=await db.products.toArray(),byCode=new Map(existing.map(p=>[p.code,p]));
+   await db.transaction('rw',db.products,async()=>{
+    for(const p of list){const old=byCode.get(p.code);if(old?.id)await db.products.update(old.id,p);else await db.products.add(p)}
+   });
+   await refresh();setNotice('Impor berhasil: '+list.length+' produk. Kode yang sama diperbarui; produk lain dipertahankan.');
+  }catch(e){setNotice('Impor CSV dibatalkan: '+(e instanceof Error?e.message:String(e)))}
+  finally{setBusy(false)}
  }
  async function stopScan(){if(scanTimerRef.current!==undefined)window.clearTimeout(scanTimerRef.current);scanTimerRef.current=undefined;const q=scannerRef.current;scannerRef.current=null;if(q){try{if(q.isScanning)await q.stop();q.clear()}catch{}}setScan(false)}
  async function startScan(){setScan(true);scanTimerRef.current=window.setTimeout(async()=>{const q=new Html5Qrcode('barcode-reader');scannerRef.current=q;try{await q.start({facingMode:'environment'},{fps:10,qrbox:{width:240,height:120}},async v=>{setQuery(v);await stopScan()},()=>{});if(scannerRef.current!==q&&q.isScanning)await q.stop()}catch{if(scannerRef.current===q)scannerRef.current=null;setNotice('Kamera tidak tersedia atau izin belum diberikan.');setScan(false)}},180)}
