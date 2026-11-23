@@ -19,7 +19,8 @@
     "react-dom": "^18.3.1",
     "vite": "^6.0.5",
     "@capacitor/core": "^6.2.0",
-    "@capacitor/android": "^6.2.0"
+    "@capacitor/android": "^6.2.0",
+    "jspdf": "^2.5.2"
   },
   "devDependencies": {
     "@types/papaparse": "^5.3.15",
