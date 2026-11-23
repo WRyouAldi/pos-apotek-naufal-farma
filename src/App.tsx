@@ -268,9 +268,9 @@ export default function App(){
    try{
     await Share.share({title:'PDF Apotek Naufal Farma',text:'Pilih Files atau Simpan ke perangkat untuk menyimpan PDF, atau pilih aplikasi lain untuk membagikannya.',url:file.uri,dialogTitle:'Simpan atau bagikan PDF'});
     setNotice('PDF sudah dibuat. Periksa aplikasi tujuan untuk memastikan file tersimpan atau terkirim.');
-   }catch(error){
+   }catch{
     setNotice('PDF berhasil dibuat sementara, tetapi menu berbagi gagal dibuka. Coba lagi atau periksa izin aplikasi.');
-    throw error;
+    return;
    }
    return;
   }
