@@ -14,7 +14,7 @@ export default function App(){
  async function refresh(){setProducts(await db.products.toArray());setSales(await db.sales.toArray());setMoves(await db.movements.toArray())}
  async function seedProductsFromCSV(){
   if(await db.products.count()>0)return;
-  const response=await fetch(`${import.meta.env.BASE_URL}data/xReport2.csv`);
+  const response=await fetch('data/xReport2.csv');
   if(!response.ok)throw new Error('File master CSV belum tersedia di aplikasi.');
   const raw=await response.text(),lines=raw.split(/\r?\n/);
   const headerAt=lines.findIndex(line=>/Kode Item/i.test(line)&&/Nama Item/i.test(line));
