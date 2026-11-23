@@ -10,11 +10,11 @@ const localDate=(d=new Date())=>{const y=d.getFullYear(),m=String(d.getMonth()+1
 const money=(n:number)=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n||0);
 const num=(v:unknown)=>Number(String(v??'0').replace(/[^0-9-]/g,''))||0;
 function parseMasterCSV(raw:string){
- const lines=raw.replace(/^\uFEFF/,'').split(/\r\n|\n|\r/);
- const headerAt=lines.findIndex(line=>/kode\s*item/i.test(line)&&/nama\s*item/i.test(line));
+ const lines=raw.replace(/^\\uFEFF/,'').split(/\\r\\n|\\n|\\r/);
+ const headerAt=lines.findIndex(line=>/kode\\s*item/i.test(line)&&/nama\\s*item/i.test(line));
  if(headerAt<0)throw new Error('Header CSV tidak ditemukan. Pastikan ada kolom Kode Item dan Nama Item.');
  const headerLine=lines[headerAt];
- const delimiter=headerLine.includes(';')?';':headerLine.includes('\t')?'\t':',';
+ const delimiter=headerLine.includes(';')?';':headerLine.includes('\\t')?'\\t':',';
  const normalized=[headerLine];let repaired=0;
  for(const line of lines.slice(headerAt+1)){
   if(!line.trim())continue;
@@ -24,19 +24,50 @@ function parseMasterCSV(raw:string){
    repaired++;
   }else normalized.push(line);
  }
- const parsed=Papa.parse<Record<string,string>>(normalized.join('\n'),{
+ const parsed=Papa.parse<Record<string,string>>(normalized.join('\\n'),{
   header:true,delimiter,skipEmptyLines:'greedy',
-  transformHeader:h=>h.replace(/^\uFEFF/,'').trim().toLowerCase()
+  transformHeader:h=>h.replace(/^\\uFEFF/,'').trim().toLowerCase()
  });
  if(parsed.errors.length)throw new Error('Format CSV tidak valid pada baris '+(headerAt+1+parsed.errors[0].row)+'. Periksa pemisah dan tanda kutip.');
  const headers=Object.keys(parsed.data[0]??{});
- if(!headers.includes('kode item')&&!headers.includes('kode'))throw new Error('Kolom Kode Item/Kode tidak ditemukan.');
- if(!headers.includes('nama item')&&!headers.includes('nama'))throw new Error('Kolom Nama Item/Nama tidak ditemukan.');
+ const required=['kode item','nama item','stok','harga beli','harga jual'];
+ for(const key of required)if(!headers.includes(key))throw new Error('Kolom wajib tidak ditemukan: '+key+'.');
  return {data:parsed.data,headerAt,repaired};
+}
+function csvInteger(value:string,label:string,line:number){
+ const raw=value.trim().replace(/^rp\\s*/i,'').replace(/\\s/g,'');
+ if(!raw)throw new Error(label+' kosong pada baris '+line+'.');
+ if(!/^-?\\d+$|^-?\\d{1,3}(?:\\.\\d{3})+$/.test(raw))throw new Error(label+' memiliki format angka tidak valid pada baris '+line+': '+value);
+ const result=Number(raw.replace(/\\./g,''));
+ if(!Number.isSafeInteger(result))throw new Error(label+' di luar batas angka aman pada baris '+line+'.');
+ return result;
+}
+function productsFromCSV(parsed:ReturnType<typeof parseMasterCSV>){
+ const seen=new Set<string>(),list:Product[]=[];let skipped=0;
+ for(let i=0;i<parsed.data.length;i++){
+  const row=parsed.data[i];
+  const get=(...keys:string[])=>{const k=Object.keys(row).find(x=>keys.includes(x));return k?String(row[k]??'').trim():''};
+  const code=get('kode item','kode'),name=get('nama item','nama');
+  if(!code&&!name){skipped++;continue}
+  if(code==='.'&&name==='.') {skipped++;continue}
+  if(/^\\d{1,2}\\/\\d{1,2}\\/\\d{4}\\s+\\d{1,2}:\\d{2}$/.test(code)&&get('kode barcode')==='ADMIN'&&!name){skipped++;continue}
+  const line=parsed.headerAt+i+2;
+  if(!code||!name)throw new Error('Baris '+line+': kode dan nama produk wajib diisi.');
+  if(seen.has(code))throw new Error('Kode produk duplikat: '+code+' (baris '+line+').');
+  seen.add(code);
+  const stock=csvInteger(get('stok'),'Stok',line);
+  const buyPrice=csvInteger(get('harga beli'),'Harga Beli',line);
+  const sellPrice=csvInteger(get('harga jual'),'Harga Jual',line);
+  const minStock=get('stok min')?csvInteger(get('stok min'),'Stok Minimum',line):0;
+  if(buyPrice<0||sellPrice<0||minStock<0)throw new Error('Harga dan stok minimum tidak boleh negatif (baris '+line+').');
+  list.push({code,barcode:get('kode barcode','barcode'),name,category:get('jenis','kategori'),brand:get('merek','brand'),stock,unit:get('satuan')||'pcs',buyPrice,sellPrice,minStock,shelf:get('rak'),supplier:get('supplier')});
+ }
+ if(!list.length)throw new Error('Tidak ada produk valid untuk diproses.');
+ return {list,skipped};
 }
 
 export default function App(){
- const [tab,setTab]=useState<Tab>('Dashboard'),[reportFrom,setReportFrom]=useState(''),[reportTo,setReportTo]=useState(''),[pdfBusy,setPdfBusy]=useState(false),[openMenu,setOpenMenu]=useState<'Produk'|'Persediaan'|null>(null),[products,setProducts]=useState<Product[]>([]),[sales,setSales]=useState<Sale[]>([]),[moves,setMoves]=useState<Movement[]>([]),[query,setQuery]=useState(''),[cart,setCart]=useState<{p:Product,qty:number}[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[scan,setScan]=useState(false),[stockDialog,setStockDialog]=useState<'MASUK'|'KELUAR'|null>(null),[stockQty,setStockQty]=useState(''),[syncing,setSyncing]=useState(false),[syncState,setSyncState]=useState<'online'|'offline'|'syncing'|'error'>('offline'),[lastSync,setLastSync]=useState(''); const syncLock=useRef(false); const scannerRef=useRef<Html5Qrcode|null>(null),scanTimerRef=useRef<number|undefined>(undefined);
+ const [tab,setTab]=useState<Tab>('Dashboard'),[reportFrom,setReportFrom]=useState(''),[reportTo,setReportTo]=useState(''),[pdfBusy,setPdfBusy]=useState(false),[openMenu,setOpenMenu]=useState<'Produk'|'Persediaan'|null>(null),[products,setProducts]=useState<Product[]>([]),[sales,setSales]=useState<Sale[]>([]),[moves,setMoves]=useState<Movement[]>([]),[query,setQuery]=useState(''),[cart,setCart]=useState<{p:Product,qty:number}[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[scan,setScan]=useState(false),[stockDialog,setStockDialog]=useState<'MASUK'|'KELUAR'|null>(null),[stockQty,setStockQty]=useState(''),[syncing,setSyncing]=useState(false),[syncState,setSyncState]=useState<'online'|'offline'|'syncing'|'error'>('offline'),[lastSync,setLastSync]=useState(()=>{try{return localStorage.getItem('naufal-farma:last-csv-sync')||''}catch{return ''}}); const syncLock=useRef(false); const scannerRef=useRef<Html5Qrcode|null>(null),scanTimerRef=useRef<number|undefined>(undefined);
  async function refresh(){setProducts(await db.products.toArray());setSales(await db.sales.toArray());setMoves(await db.movements.toArray())}
 
  async function syncCloudCSV(showFeedback=false){
@@ -60,28 +91,18 @@ export default function App(){
     raw=new TextDecoder().decode(Uint8Array.from(binary,ch=>ch.charCodeAt(0)));
    }finally{window.clearTimeout(timeout)}
    const parsed=parseMasterCSV(raw);
-   const seen=new Set<string>(),incoming:Product[]=[];
-   for(const row of parsed.data){
-    const get=(...keys:string[])=>{const k=Object.keys(row).find(x=>keys.includes(x));return k?String(row[k]??'').trim():''};
-    const code=get('kode item','kode'),name=get('nama item','nama');
-    if(!code||!name||(code==='.'&&name==='.')||seen.has(code))continue;
-    seen.add(code);
-    const value=(...keys:string[])=>{const v=get(...keys);return Number(v.replace(/[^0-9-]/g,''))||0};
-    const stock=value('stok'),buyPrice=value('harga beli'),sellPrice=value('harga jual'),minStock=value('stok min');
-    if(buyPrice<0||sellPrice<0||minStock<0)continue;
-    incoming.push({code,barcode:get('kode barcode','barcode'),name,category:get('jenis','kategori'),brand:get('merek','brand'),stock,unit:get('satuan')||'pcs',buyPrice,sellPrice,minStock,shelf:get('rak'),supplier:get('supplier')});
-   }
-   if(!incoming.length)throw new Error('CSV GitHub tidak berisi produk valid.');
+   const {list:incoming,skipped}=productsFromCSV(parsed);
+   if(incoming.length<100)throw new Error('CSV GitHub tidak lengkap: hanya '+incoming.length+' produk valid. Data lokal tidak diubah.');
    const existing=await db.products.toArray(),byCode=new Map(existing.map(p=>[p.code,p]));
    await db.transaction('rw',db.products,async()=>{
     for(const item of incoming){
      const old=byCode.get(item.code);
-     if(old&&old.id)await db.products.update(old.id,{...item,stock:old.stock});
+     if(old&&old.id)await db.products.update(old.id,{...item,stock:old.stock,barcode:item.barcode||old.barcode});
      else await db.products.add(item);
     }
    });
-   await refresh();setLastSync(new Date().toISOString());setSyncState('online');
-   if(showFeedback)setNotice('Sinkronisasi GitHub berhasil: '+incoming.length+' produk diperiksa.'+(parsed.repaired?' · '+parsed.repaired+' baris CSV dirapikan.':''));
+   await refresh();const syncedAt=new Date().toISOString();setLastSync(syncedAt);try{localStorage.setItem('naufal-farma:last-csv-sync',syncedAt)}catch{}setSyncState('online');
+   if(showFeedback)setNotice('Sinkronisasi GitHub berhasil: '+incoming.length+' produk diperiksa.'+(parsed.repaired?' · '+parsed.repaired+' baris CSV dirapikan.':'')+(skipped?' · '+skipped+' baris non-produk dilewati.':''));
   }catch(e){
    setSyncState(navigator.onLine?'error':'offline');
    if(showFeedback)setNotice('Sync GitHub gagal. Data lokal tetap digunakan: '+(e instanceof Error?e.message:String(e)));
@@ -157,34 +178,17 @@ export default function App(){
   try{
    const raw=await file.text();
    const parsed=parseMasterCSV(raw);
-   const rows=parsed.data.filter(row=>Object.values(row).some(v=>String(v??'').trim()!==''));
-   if(!rows.length)throw new Error('File CSV tidak memiliki data produk.');
-   const seen=new Set<string>(),list:Product[]=[];
-   for(let i=0;i<rows.length;i++){
-    const x=rows[i];
-    const get=(...keys:string[])=>{const k=Object.keys(x).find(a=>keys.includes(a));return k?String(x[k]??'').trim():''};
-    const code=get('kode item','kode'),name=get('nama item','nama');
-    if((!code&&!name)||(code==='.'&&name==='.'))continue;
-    const lineNumber=parsed.headerAt+i+2;
-    if(!code||!name)throw new Error('Baris '+lineNumber+': kode dan nama wajib diisi.');
-    if(seen.has(code))throw new Error('Kode duplikat di CSV: '+code);
-    seen.add(code);
-    const val=(label:string,...keys:string[])=>{
-     const rawValue=get(...keys);if(!rawValue)return 0;
-     const n=Number(rawValue.replace(/[^0-9-]/g,''));
-     if(!Number.isSafeInteger(n))throw new Error(label+' tidak valid pada baris '+lineNumber);
-     return n;
-    };
-    const stock=val('Stok','stok'),buyPrice=val('Harga Beli','harga beli'),sellPrice=val('Harga Jual','harga jual'),minStock=val('Stok Min','stok min');
-    if(buyPrice<0||sellPrice<0||minStock<0)throw new Error('Harga/stok minimum negatif pada baris '+lineNumber);
-    list.push({code,barcode:get('kode barcode','barcode'),name,category:get('jenis','kategori'),brand:get('merek','brand'),stock,unit:get('satuan')||'pcs',buyPrice,sellPrice,minStock,shelf:get('rak'),supplier:get('supplier')});
-   }
-   if(!list.length)throw new Error('Tidak ada produk valid untuk diimpor.');
+   const {list,skipped}=productsFromCSV(parsed);
+   if(list.length<1)throw new Error('Tidak ada produk valid untuk diimpor.');
    const existing=await db.products.toArray(),byCode=new Map(existing.map(p=>[p.code,p]));
    await db.transaction('rw',db.products,async()=>{
-    for(const p of list){const old=byCode.get(p.code);if(old?.id)await db.products.update(old.id,p);else await db.products.add(p)}
+    for(const p of list){
+     const old=byCode.get(p.code);
+     if(old?.id)await db.products.update(old.id,{...p,stock:old.stock,barcode:p.barcode||old.barcode});
+     else await db.products.add(p);
+    }
    });
-   await refresh();setNotice('Impor berhasil: '+list.length+' produk.'+(parsed.repaired?' · '+parsed.repaired+' baris CSV dirapikan.':'')+' Kode yang sama diperbarui; produk lain dipertahankan.');
+   await refresh();setNotice('Impor berhasil: '+list.length+' produk; stok lokal dipertahankan.'+(skipped?' · '+skipped+' baris kosong/non-produk dilewati.':'')+(parsed.repaired?' · '+parsed.repaired+' baris CSV tergabung diperbaiki.':''));
   }catch(e){setNotice('Impor CSV dibatalkan: '+(e instanceof Error?e.message:String(e)))}
   finally{setBusy(false)}
  }
