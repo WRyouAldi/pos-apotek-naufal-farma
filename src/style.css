@@ -93,6 +93,11 @@ button:disabled{cursor:not-allowed;opacity:.5}
 .panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.panel-head h3{margin:0}
 .grid-two{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);align-items:start;gap:18px}
 .search{display:block;width:100%;min-height:48px;margin:10px 0 15px;padding:0 15px;border:1px solid rgba(171,194,220,.65);border-radius:var(--radius-sm);background:rgba(255,255,255,.78);box-shadow:inset 0 1px 2px rgba(25,57,95,.035),inset 0 1px 0 rgba(255,255,255,.9);color:#17375e;font-size:15px;outline:none;-webkit-backdrop-filter:blur(var(--blur-control)) saturate(130%);backdrop-filter:blur(var(--blur-control)) saturate(130%);transition:border-color var(--motion-normal) var(--ease),box-shadow var(--motion-normal) var(--ease),background var(--motion-normal) var(--ease)}
+.search-with-scan{display:grid;grid-template-columns:minmax(0,1fr) 48px;align-items:center;gap:8px;margin:10px 0 15px}
+.search-with-scan .search{min-width:0;margin:0}
+.scan-search-btn{width:48px;min-width:48px;height:48px;padding:0;border:1px solid rgba(171,194,220,.65);background:rgba(225,241,255,.82);color:#24669d}
+.panel-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.scan-search-btn svg{width:19px;height:19px}
 .search::placeholder{color:#91a2b7}.search:focus,.report-tools input:focus,.ui-input:focus{border-color:#58a6e7;box-shadow:var(--focus-ring);background:rgba(255,255,255,.94)}
 .primary,.soft-btn,.ui-ghost{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:var(--control-height);padding:10px 16px;border-radius:var(--radius-sm);font-size:12px;font-weight:750;transition:transform var(--motion-fast) var(--ease),box-shadow var(--motion-normal) var(--ease),background var(--motion-normal) var(--ease),border-color var(--motion-normal) var(--ease)}
 .primary{border:1px solid rgba(255,255,255,.22);color:#fff;background:linear-gradient(120deg,#1769c2,#238fca);box-shadow:0 8px 18px rgba(23,105,194,.20),inset 0 1px 0 rgba(255,255,255,.22)}
