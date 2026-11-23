@@ -10,11 +10,11 @@ const localDate=(d=new Date())=>{const y=d.getFullYear(),m=String(d.getMonth()+1
 const money=(n:number)=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n||0);
 const num=(v:unknown)=>Number(String(v??'0').replace(/[^0-9-]/g,''))||0;
 function parseMasterCSV(raw:string){
- const lines=raw.replace(/^\\uFEFF/,'').split(/\\r\\n|\\n|\\r/);
- const headerAt=lines.findIndex(line=>/kode\\s*item/i.test(line)&&/nama\\s*item/i.test(line));
+ const lines=raw.replace(/^\uFEFF/,'').split(/\r\n|\n|\r/);
+ const headerAt=lines.findIndex(line=>/kode\s*item/i.test(line)&&/nama\s*item/i.test(line));
  if(headerAt<0)throw new Error('Header CSV tidak ditemukan. Pastikan ada kolom Kode Item dan Nama Item.');
  const headerLine=lines[headerAt];
- const delimiter=headerLine.includes(';')?';':headerLine.includes('\\t')?'\\t':',';
+ const delimiter=headerLine.includes(';')?';':headerLine.includes('\t')?'\t':',';
  const normalized=[headerLine];let repaired=0;
  for(const line of lines.slice(headerAt+1)){
   if(!line.trim())continue;
@@ -24,9 +24,9 @@ function parseMasterCSV(raw:string){
    repaired++;
   }else normalized.push(line);
  }
- const parsed=Papa.parse<Record<string,string>>(normalized.join('\\n'),{
+ const parsed=Papa.parse<Record<string,string>>(normalized.join('\n'),{
   header:true,delimiter,skipEmptyLines:'greedy',
-  transformHeader:h=>h.replace(/^\\uFEFF/,'').trim().toLowerCase()
+  transformHeader:h=>h.replace(/^\uFEFF/,'').trim().toLowerCase()
  });
  if(parsed.errors.length)throw new Error('Format CSV tidak valid pada baris '+(headerAt+1+parsed.errors[0].row)+'. Periksa pemisah dan tanda kutip.');
  const headers=Object.keys(parsed.data[0]??{});
@@ -35,10 +35,10 @@ function parseMasterCSV(raw:string){
  return {data:parsed.data,headerAt,repaired};
 }
 function csvInteger(value:string,label:string,line:number){
- const raw=value.trim().replace(/^rp\\s*/i,'').replace(/\\s/g,'');
+ const raw=value.trim().replace(/^rp\s*/i,'').replace(/\s/g,'');
  if(!raw)throw new Error(label+' kosong pada baris '+line+'.');
- if(!/^-?\\d+$|^-?\\d{1,3}(?:\\.\\d{3})+$/.test(raw))throw new Error(label+' memiliki format angka tidak valid pada baris '+line+': '+value);
- const result=Number(raw.replace(/\\./g,''));
+ if(!/^-?\d+$|^-?\d{1,3}(?:\.\d{3})+$/.test(raw))throw new Error(label+' memiliki format angka tidak valid pada baris '+line+': '+value);
+ const result=Number(raw.replace(/\./g,''));
  if(!Number.isSafeInteger(result))throw new Error(label+' di luar batas angka aman pada baris '+line+'.');
  return result;
 }
@@ -50,7 +50,7 @@ function productsFromCSV(parsed:ReturnType<typeof parseMasterCSV>){
   const code=get('kode item','kode'),name=get('nama item','nama');
   if(!code&&!name){skipped++;continue}
   if(code==='.'&&name==='.') {skipped++;continue}
-  if(/^\\d{1,2}\\/\\d{1,2}\\/\\d{4}\\s+\\d{1,2}:\\d{2}$/.test(code)&&get('kode barcode')==='ADMIN'&&!name){skipped++;continue}
+  if(/^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}$/.test(code)&&get('kode barcode')==='ADMIN'&&!name){skipped++;continue}
   const line=parsed.headerAt+i+2;
   if(!code||!name)throw new Error('Baris '+line+': kode dan nama produk wajib diisi.');
   if(seen.has(code))throw new Error('Kode produk duplikat: '+code+' (baris '+line+').');
