@@ -865,3 +865,51 @@ html[data-theme="dark"] .ui-modal{color:#e8f4f2;background:linear-gradient(145de
  html[data-theme="dark"] body{background:#07191d}
  html[data-theme="dark"] .panel,html[data-theme="dark"] .stat,html[data-theme="dark"] .topbar{background:#0c292c}
 }
+
+
+/* Unified interaction layer: consistent touch targets, states and keyboard access. */
+button,.soft-btn,.primary,.ui-ghost,.ui-button,.nav-submenu button,.qty-control button{
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+.primary,.soft-btn,.ui-ghost,.ui-button,.nav-submenu button,.theme-option,.report-row .soft-btn{
+  min-height:44px;
+}
+.primary:focus-visible,.soft-btn:focus-visible,.ui-ghost:focus-visible,
+.ui-button:focus-visible,.qty-control button:focus-visible,
+.product-pick:focus-visible,.theme-option:focus-visible,
+.upload:focus-within,.nav:focus-visible,.nav-submenu button:focus-visible{
+  outline:3px solid rgba(87,157,190,.72);
+  outline-offset:3px;
+}
+.primary:disabled,.soft-btn:disabled,.ui-ghost:disabled,.ui-button:disabled,
+.qty-control button:disabled,.nav:disabled,.product-pick:disabled{
+  opacity:.42;
+  cursor:not-allowed;
+  transform:none;
+  filter:saturate(.55);
+  box-shadow:none;
+}
+.primary:not(:disabled),.soft-btn:not(:disabled),.ui-ghost:not(:disabled),
+.ui-button:not(:disabled),.qty-control button:not(:disabled),
+.nav:not(:disabled),.nav-submenu button:not(:disabled){cursor:pointer}
+.primary:not(:disabled):active,.soft-btn:not(:disabled):active,
+.ui-ghost:not(:disabled):active,.ui-button:not(:disabled):active,
+.nav-submenu button:not(:disabled):active{transform:scale(.98)}
+.upload{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px}
+.report-row .soft-btn{white-space:nowrap}
+@media(prefers-reduced-motion:reduce){
+  .primary,.soft-btn,.ui-ghost,.ui-button,.nav,.nav-submenu button,
+  .theme-option,.qty-control button{transition:none!important;animation:none!important}
+}
+html[data-theme="dark"] .primary:focus-visible,
+html[data-theme="dark"] .soft-btn:focus-visible,
+html[data-theme="dark"] .ui-ghost:focus-visible,
+html[data-theme="dark"] .ui-button:focus-visible,
+html[data-theme="dark"] .qty-control button:focus-visible,
+html[data-theme="dark"] .product-pick:focus-visible,
+html[data-theme="dark"] .theme-option:focus-visible,
+html[data-theme="dark"] .nav:focus-visible,
+html[data-theme="dark"] .nav-submenu button:focus-visible{
+  outline-color:rgba(117,214,199,.82);
+}
