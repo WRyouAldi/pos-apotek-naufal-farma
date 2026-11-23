@@ -194,7 +194,41 @@ export default function App(){
   finally{setBusy(false)}
  }
  async function stopScan(){if(scanTimerRef.current!==undefined)window.clearTimeout(scanTimerRef.current);scanTimerRef.current=undefined;const q=scannerRef.current;scannerRef.current=null;if(q){try{if(q.isScanning)await q.stop();q.clear()}catch{}}setScan(false)}
- async function startScan(){setScan(true);scanTimerRef.current=window.setTimeout(async()=>{const q=new Html5Qrcode('barcode-reader');scannerRef.current=q;try{await q.start({facingMode:'environment'},{fps:10,qrbox:{width:240,height:120}},async v=>{setQuery(v);await stopScan()},()=>{});if(scannerRef.current!==q&&q.isScanning)await q.stop()}catch{if(scannerRef.current===q)scannerRef.current=null;setNotice('Kamera tidak tersedia atau izin belum diberikan.');setScan(false)}},180)}
+ async function startScan(){
+  if(scan||scanTimerRef.current!==undefined)return;
+  setScan(true);
+  scanTimerRef.current=window.setTimeout(async()=>{
+   scanTimerRef.current=undefined;
+   const reader=document.getElementById('barcode-reader');
+   if(!reader){setScan(false);setNotice('Area pemindai belum siap. Coba buka kembali.');return}
+   let q:Html5Qrcode|null=null;
+   try{
+    if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia)throw new Error('Akses kamera memerlukan koneksi aplikasi yang aman. Perbarui aplikasi dan coba lagi.');
+    const cameras=await Html5Qrcode.getCameras();
+    if(!cameras.length)throw new Error('Kamera tidak ditemukan pada perangkat ini.');
+    const camera=cameras.find(c=>/back|rear|environment|belakang/i.test(c.label))||cameras[cameras.length-1];
+    q=new Html5Qrcode('barcode-reader',{verbose:false});
+    scannerRef.current=q;
+    const boxWidth=Math.max(180,Math.min(280,reader.clientWidth-32));
+    await q.start(camera.id,{fps:12,qrbox:{width:boxWidth,height:Math.round(boxWidth*.48)},aspectRatio:16/9},async value=>{
+     if(scannerRef.current!==q)return;
+     setQuery(value.trim());
+     setNotice('Barcode berhasil dibaca: '+value.trim());
+     await stopScan();
+    },()=>{});
+    if(scannerRef.current!==q&&q.isScanning)await q.stop();
+   }catch(error){
+    if(scannerRef.current===q)scannerRef.current=null;
+    if(q){try{if(q.isScanning)await q.stop();q.clear()}catch{}}
+    const message=error instanceof Error?error.message:String(error),lower=message.toLowerCase();
+    setNotice(lower.includes('permission')||lower.includes('notallowed')||lower.includes('denied')
+     ?'Izin kamera ditolak. Izinkan akses Kamera untuk aplikasi POS Apotek di pengaturan Android.'
+     :lower.includes('secure')?'Akses kamera tidak tersedia pada konteks aplikasi ini. Perbarui aplikasi Android.'
+     :'Pemindai gagal dibuka: '+message);
+    setScan(false);
+   }
+  },350);
+ }
  useEffect(()=>()=>{if(scanTimerRef.current!==undefined)window.clearTimeout(scanTimerRef.current);const q=scannerRef.current;if(q?.isScanning)void q.stop()},[]);
  async function backupAll(){
   try{setBusy(true);const payload={format:'naufal-farma-pos-backup',version:1,createdAt:new Date().toISOString(),data:{products:await db.products.toArray(),sales:await db.sales.toArray(),movements:await db.movements.toArray()}};
@@ -295,6 +329,28 @@ export default function App(){
  {(tab==='Cek Harga'||tab==='Barang')&&<section className="panel"><div className="panel-head"><h3>{tab==='Barang'?'Master barang':'Pencarian harga produk'}</h3><div className="panel-actions">{tab==='Barang'&&<label className="soft-btn upload"><Upload size={16}/> Impor CSV<input type="file" accept=".csv,text/csv" disabled={busy} onChange={e=>{const file=e.target.files?.[0];e.currentTarget.value='';if(file)void importCSV(file)}}/></label>}</div></div><div className="search-with-scan"><UiInput className="search" placeholder="Cari nama, kode, atau barcode..." value={query} onChange={e=>setQuery(e.target.value)}/><UiButton className="soft-btn scan-search-btn" aria-label="Buka pemindai barcode" onClick={()=>void startScan()}><Camera size={18}/></UiButton></div><div className="table-wrap"><table><thead><tr><th>Nama</th><th>Kode</th><th>Barcode</th><th>Stok</th><th>Harga beli</th><th>Harga jual</th></tr></thead><tbody>{filtered.slice(0,60).map(p=><tr key={p.code}><td>{p.name}</td><td>{p.code}</td><td>{p.barcode||'—'}</td><td>{p.stock} {p.unit}</td><td>{money(p.buyPrice)}</td><td>{money(p.sellPrice)}</td></tr>)}{!filtered.length&&<tr><td colSpan={6} className="empty-state">Produk tidak ditemukan.</td></tr>}</tbody></table></div>{filtered.length>60&&<p className="empty-state">Menampilkan 60 produk pertama. Gunakan pencarian untuk mempersempit hasil.</p>}</section>}
  {(tab==='Barang Masuk'||tab==='Barang Keluar')&&<section className="panel"><h3>{tab}</h3><UiInput className="search" placeholder="Kode item atau barcode" value={query} onChange={e=>setQuery(e.target.value)}/><p>{products.find(p=>p.code===query||p.barcode===query)?.name||'Masukkan kode produk yang tepat.'}</p><button className="primary" onClick={()=>{setStockQty('');setStockDialog(tab==='Barang Masuk'?'MASUK':'KELUAR')}}>Catat mutasi</button><h3>Riwayat mutasi</h3>{moves.filter(m=>m.type===(tab==='Barang Masuk'?'MASUK':'KELUAR')).slice(-30).reverse().map((m,i)=><p className="row" key={i}>{m.createdAt.slice(0,16)} · {m.name} · {m.qty}</p>)}</section>}
  {tab==='Laporan'&&(()=>{const reportSales=sales.filter(s=>(!reportFrom||localDate(new Date(s.createdAt))>=reportFrom)&&(!reportTo||localDate(new Date(s.createdAt))<=reportTo)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));const total=reportSales.reduce((a,s)=>a+s.total,0);return <section className="panel"><div className="panel-head"><h3>Riwayat penjualan</h3><b>Omzet: {money(total)}</b></div><div className="report-tools"><label>Dari tanggal<input type="date" value={reportFrom} onChange={e=>setReportFrom(e.target.value)}/></label><label>Sampai tanggal<input type="date" value={reportTo} onChange={e=>setReportTo(e.target.value)}/></label><button className="primary" disabled={pdfBusy||!reportSales.length} onClick={()=>void downloadReportPDF(reportSales)}><Download size={16}/> {pdfBusy?'Membuat PDF…':'Cetak laporan PDF'}</button></div><p className="report-summary">{reportSales.length} transaksi · Omzet {money(total)} · Estimasi laba {money(reportSales.reduce((a,s)=>a+s.items.reduce((b,i)=>b+(i.price-i.cost)*i.qty,0),0))}</p>{reportSales.map((sale,i)=><div className="report-row" key={sale.id??sale.createdAt+i}><div><b>{pdfDate(sale.createdAt)}</b><small>{sale.items.map(x=>x.name+' ×'+x.qty).join(', ')}</small><strong>{money(sale.total)}</strong></div><button className="soft-btn" disabled={pdfBusy} onClick={()=>void downloadReceiptPDF(sale)}><Download size={15}/> Struk PDF</button></div>)}</section>})()}
- {tab==='Pengaturan'&&<section className="panel"><h3><Sun size={18}/> Tampilan aplikasi</h3><p className="theme-description">Pilih tema yang nyaman digunakan. Pengaturan tersimpan otomatis di perangkat ini.</p><div className="theme-picker" role="group" aria-label="Pilih tema tampilan"><button type="button" className={'theme-option '+(theme==='light'?'selected':'')} aria-pressed={theme==='light'} onClick={()=>setTheme('light')}><Sun size={19}/><span><b>Light mode</b><small>Terang · Crystal Liquid</small></span>{theme==='light'&&<ShieldCheck size={17}/>}</button><button type="button" className={'theme-option '+(theme==='dark'?'selected':'')} aria-pressed={theme==='dark'} onClick={()=>setTheme('dark')}><Moon size={19}/><span><b>Dark mode</b><small>Gelap · nyaman malam hari</small></span>{theme==='dark'&&<ShieldCheck size={17}/>}</button></div><h3><Cloud size={18}/> Sinkronisasi database GitHub</h3><div className="notice"><Cloud/><div><b>{syncState==='syncing'?'Sedang mengambil CSV dari GitHub…':syncState==='online'?'Terhubung · master produk tersinkron':syncState==='error'?'Sinkronisasi gagal · data lokal tetap aman':'Offline · menggunakan data lokal'}</b><p>{lastSync?'Sinkron terakhir: '+new Date(lastSync).toLocaleString('id-ID'):'Belum ada sinkronisasi berhasil pada sesi ini.'}</p><p>Otomatis saat aplikasi dibuka, koneksi kembali aktif, aplikasi dibuka lagi, dan setiap 15 menit. Sinkron satu arah GitHub → aplikasi; tidak memerlukan token.</p></div></div><button className="primary" disabled={syncing||!navigator.onLine} onClick={()=>void syncCloudCSV(true)}><RefreshCw size={16}/> {syncing?'Menyinkronkan…':'Sinkronkan sekarang'}</button><h3><ShieldCheck size={18}/> Data lokal</h3><div className="panel-head"><button className="soft-btn" disabled={busy} onClick={()=>void backupAll()}><Download size={16}/> Backup lengkap (JSON)</button><label className="soft-btn upload"><FileUp size={16}/> Pulihkan backup<input type="file" accept=".json,application/json" disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(file)void restoreAll(file);e.currentTarget.value=''}}/></label></div><button className="soft-btn" disabled={busy} onClick={exportCSV}><Download size={16}/> Ekspor master produk CSV</button>{busy&&<p>Memproses data, jangan tutup aplikasi...</p>}</section>}
+ {tab==='Pengaturan'&&<div className="settings-layout">
+  <section className="panel settings-panel">
+   <div className="settings-heading"><span className="settings-icon"><Sun size={20}/></span><div><h3>Tampilan aplikasi</h3><p>Pilih tema yang nyaman digunakan. Pengaturan tersimpan otomatis di perangkat ini.</p></div></div>
+   <div className="theme-picker" role="group" aria-label="Pilih tema tampilan">
+    <button type="button" className={'theme-option '+(theme==='light'?'selected':'')} aria-pressed={theme==='light'} onClick={()=>setTheme('light')}><span className="theme-option-icon"><Sun size={20}/></span><span className="theme-option-copy"><b>Light mode</b><small>Pearl · Crystal Liquid</small></span>{theme==='light'&&<ShieldCheck className="theme-check" size={19}/>}</button>
+    <button type="button" className={'theme-option '+(theme==='dark'?'selected':'')} aria-pressed={theme==='dark'} onClick={()=>setTheme('dark')}><span className="theme-option-icon"><Moon size={20}/></span><span className="theme-option-copy"><b>Dark mode</b><small>Graphite · nyaman malam hari</small></span>{theme==='dark'&&<ShieldCheck className="theme-check" size={19}/>}</button>
+   </div>
+  </section>
+  <section className="panel settings-panel">
+   <div className="settings-heading"><span className="settings-icon"><Cloud size={20}/></span><div><h3>Sinkronisasi database GitHub</h3><p>Master produk tersinkron satu arah dari GitHub ke aplikasi.</p></div></div>
+   <div className="sync-status-card"><span className="sync-status-icon"><Cloud size={24}/></span><div className="sync-status-copy"><b>{syncState==='syncing'?'Sedang mengambil CSV dari GitHub…':syncState==='online'?'Terhubung · master produk tersinkron':syncState==='error'?'Sinkronisasi gagal · data lokal tetap aman':'Offline · menggunakan data lokal'}</b><small>{lastSync?'Sinkron terakhir: '+new Date(lastSync).toLocaleString('id-ID'):'Belum ada sinkronisasi berhasil pada sesi ini.'}</small><p>Otomatis saat aplikasi dibuka, koneksi kembali aktif, dan setiap 15 menit. Tidak memerlukan token.</p></div></div>
+   <button className="primary settings-primary" disabled={syncing||!navigator.onLine} onClick={()=>void syncCloudCSV(true)}><RefreshCw size={17}/> {syncing?'Menyinkronkan…':'Sinkronkan sekarang'}</button>
+  </section>
+  <section className="panel settings-panel">
+   <div className="settings-heading"><span className="settings-icon"><ShieldCheck size={20}/></span><div><h3>Data lokal</h3><p>Cadangkan dan kelola data pada perangkat ini.</p></div></div>
+   <div className="settings-actions">
+    <button className="soft-btn" disabled={busy} onClick={()=>void backupAll()}><Download size={17}/> Backup lengkap (JSON)</button>
+    <label className="soft-btn upload"><FileUp size={17}/> Pulihkan backup<input type="file" accept=".json,application/json" disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(file)void restoreAll(file);e.currentTarget.value=''}}/></label>
+    <button className="soft-btn" disabled={busy} onClick={exportCSV}><Download size={17}/> Ekspor master produk CSV</button>
+   </div>
+   {busy&&<p className="settings-helper">Memproses data, jangan tutup aplikasi…</p>}
+  </section>
+ </div>}
  </main>{stockDialog&&<UiModal label={stockDialog==='MASUK'?'Barang masuk':'Barang keluar'} onClose={()=>setStockDialog(null)}><div className="stock-dialog"><h3>{stockDialog==='MASUK'?'Catat barang masuk':'Catat barang keluar'}</h3><p>{products.find(p=>p.code===query.trim()||p.barcode===query.trim())?.name}</p><UiInput autoFocus type="number" min="1" step="1" inputMode="numeric" placeholder="Jumlah unit" value={stockQty} onChange={e=>setStockQty(e.target.value)}/><UiButton variant="primary" className="full" disabled={busy||!Number.isSafeInteger(Number(stockQty))||Number(stockQty)<1} onClick={()=>void moveStock(stockDialog)}>Simpan mutasi</UiButton></div></UiModal>}{scan&&<UiModal label="Pemindai barcode" onClose={()=>void stopScan()}><div className="scan-card-content"><div id="barcode-reader"/><UiButton className="soft-btn full" onClick={()=>void stopScan()}>Tutup pemindai</UiButton></div></UiModal>}</div>
 }
