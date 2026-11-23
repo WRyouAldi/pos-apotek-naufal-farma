@@ -34,7 +34,7 @@ jobs:
           path = Path("android/app/src/main/AndroidManifest.xml")
           content = path.read_text()
           marker = "    <application"
-          permissions = '    <uses-permission android:name="android.permission.CAMERA" />\\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\\n'
+          permissions = '    <uses-permission android:name="android.permission.CAMERA" />' + chr(10) + '    <uses-feature android:name="android.hardware.camera" android:required="false" />' + chr(10)
           if "android.permission.CAMERA" not in content:
               content = content.replace(marker, permissions + marker, 1)
           path.write_text(content)
