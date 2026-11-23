@@ -279,3 +279,12 @@ td{padding:13px 14px;border-top:1px solid #eaf0f6;color:#425b78}tbody tr:hover{b
   .toast{background:#f1fff9}
   .ui-modal-backdrop{background:rgba(5,20,42,.78)}
 }
+
+
+/* Clear interaction feedback and modal stock-entry form. */
+.empty-state{margin:12px 0;padding:15px;border:1px dashed #cbdced;border-radius:13px;background:rgba(245,250,255,.72);color:#71849a;font-size:12px;line-height:1.6;text-align:center}
+.product-pick:disabled{opacity:.48;cursor:not-allowed;background:transparent}
+.stock-dialog{display:grid;gap:12px;padding-top:20px}
+.stock-dialog h3{margin:0;color:#19395f;font-size:17px}
+.stock-dialog p{margin:0;color:#617a96;font-size:12px}
+.stock-dialog .ui-input{width:100%;min-height:48px;padding:10px 13px;border:1px solid #d9e5f1;border-radius:12px;background:#fff;font-size:16px}
