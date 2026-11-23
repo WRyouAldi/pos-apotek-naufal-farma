@@ -1,3 +1,4 @@
+@layer apple {
 /* Apple Design · fluid interface pass
  * Applied from emilkowalski/skills — apple-design.
  * Intent: immediate feedback, interruptible-feeling transitions, spatial consistency,
@@ -147,3 +148,5 @@ html[data-theme="dark"] .ui-modal-backdrop{background:rgba(0,0,0,.58)}
  html[data-theme="dark"] .hallmark-nav .nav-submenu{background:rgba(31,51,39,.96);border-color:rgba(220,240,222,.12)}
 }
 html[data-theme="dark"] .ui-input:focus,html[data-theme="dark"] .search:focus{box-shadow:0 0 0 3px rgba(114,189,141,.22),var(--ad-control-shadow)}
+
+}
