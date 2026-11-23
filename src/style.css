@@ -573,3 +573,115 @@ textarea{min-height:48px}
  .nav-menu{padding-bottom:max(7px,env(safe-area-inset-bottom))}
 }
 :where(button,input,select,textarea,a,[role="button"]){-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+
+
+/* =========================================================
+   PRO MAX POLISH — Naufal Farma
+   One consistent interaction and surface language.
+   Presentation-only: no transaction or data behavior changes.
+   ========================================================= */
+:root{
+ --brand-strong:#167653;
+ --brand-soft:#e1f4e9;
+ --surface-radius:22px;
+ --surface-outline:rgba(112,151,126,.22);
+ --elevation-1:0 5px 16px rgba(25,62,43,.055);
+ --elevation-2:0 14px 34px rgba(25,62,43,.095);
+ --elevation-3:0 22px 58px rgba(17,53,37,.16);
+}
+.main{max-width:1480px}
+.main>header{align-items:flex-end;gap:12px}
+.main>header h1{font-size:clamp(26px,3.2vw,36px);font-weight:780;letter-spacing:-.055em}
+.eyebrow{letter-spacing:.13em}
+.panel,.stat,.visual-stock-card,.movement-history-card,.product-pick,.catalog-summary>div,.report-kpi{
+ border-color:var(--surface-outline);
+}
+.panel{border-radius:var(--surface-radius);box-shadow:var(--elevation-2),var(--glass-edge)}
+.panel-head{gap:12px}
+.panel-head h3{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:760;letter-spacing:-.02em}
+.panel-head h3 svg{color:#26966e;flex:none}
+.stat{border-radius:21px;box-shadow:var(--elevation-1),var(--glass-edge)}
+.stat strong{font-weight:790;font-variant-numeric:tabular-nums;letter-spacing:-.045em}
+.welcome{border-radius:28px;box-shadow:var(--elevation-3),inset 0 1px 0 rgba(255,255,255,.22)}
+.primary,.ui-button.primary{
+ border-radius:15px;font-weight:760;letter-spacing:-.01em;
+ box-shadow:0 8px 20px rgba(35,123,98,.19),inset 0 1px 0 rgba(255,255,255,.28);
+ transition:transform .16s var(--ease),box-shadow .2s var(--ease),filter .2s var(--ease);
+}
+.soft-btn,.ui-ghost,.ui-button.soft-btn,.ui-button.ui-ghost{
+ border-radius:14px;font-weight:680;
+ transition:transform .16s var(--ease),background .2s var(--ease),border-color .2s var(--ease);
+}
+button:active:not(:disabled){transform:translateY(1px) scale(.985)}
+button:disabled{filter:saturate(.65)}
+.search,.ui-input,input:not([type="checkbox"]):not([type="radio"]),select,textarea{
+ border-radius:14px;transition:border-color .18s var(--ease),box-shadow .18s var(--ease),background .18s var(--ease);
+}
+:where(button,input,select,textarea,a,[role="button"]):focus-visible{
+ outline:3px solid rgba(42,157,111,.78);outline-offset:3px;
+}
+.table-wrap{border-radius:17px;box-shadow:var(--elevation-1)}
+table{border-collapse:separate;border-spacing:0}
+th{font-size:10px;font-weight:800;letter-spacing:.055em;text-transform:uppercase}
+td{font-variant-numeric:tabular-nums}
+.toast{border-radius:17px;box-shadow:var(--elevation-3),inset 0 1px 0 rgba(255,255,255,.42)}
+.ui-modal{border-radius:26px;box-shadow:var(--elevation-3),inset 0 1px 0 rgba(255,255,255,.14)}
+.ui-modal-close{width:42px;height:42px;border-radius:14px}
+.nav{min-height:48px;font-weight:720;letter-spacing:-.01em}
+.nav.active{box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 7px 18px rgba(8,46,32,.12)}
+.nav-submenu{border-radius:18px}
+.nav-submenu button{min-height:46px;border-radius:13px}
+.online{font-variant-numeric:tabular-nums}
+.visual-stock-card,.movement-history-card,.product-pick,.report-kpi{
+ transition:transform .18s var(--ease),border-color .18s var(--ease),box-shadow .18s var(--ease);
+}
+@media(hover:hover){
+ .panel:hover{box-shadow:var(--elevation-2),var(--glass-edge)}
+ .product-pick:hover,.visual-stock-card:hover,.movement-history-card:hover,.report-kpi:hover{
+  transform:translateY(-2px);border-color:rgba(49,164,119,.38);box-shadow:var(--elevation-2),var(--glass-edge)
+ }
+ .primary:hover,.ui-button.primary:hover{filter:brightness(1.035);box-shadow:0 12px 26px rgba(35,123,98,.24)}
+}
+@media(max-width:700px){
+ .main{padding-left:13px;padding-right:13px}
+ .main>header{align-items:center}
+ .main>header h1{font-size:25px}
+ .welcome{border-radius:23px}
+ .panel{border-radius:19px}
+ .nav-menu{padding:7px 6px;border-radius:23px;box-shadow:0 14px 38px rgba(4,20,43,.28),inset 0 1px 0 rgba(255,255,255,.2)}
+ .nav{min-height:56px;border-radius:15px;font-size:9px}
+ .nav.active{background:linear-gradient(145deg,rgba(105,194,151,.36),rgba(165,220,197,.16))}
+ .nav.active svg{filter:drop-shadow(0 2px 5px rgba(88,229,173,.35))}
+ .nav-menu .nav-submenu{border-radius:19px;box-shadow:0 18px 42px rgba(8,35,24,.22),var(--glass-edge)}
+ .toast{bottom:calc(151px + env(safe-area-inset-bottom));font-size:12px}
+}
+@media(max-width:360px){
+ .main{padding-left:10px;padding-right:10px}
+ .nav-menu{left:7px;right:7px;grid-template-columns:repeat(6,minmax(0,1fr))}
+ .nav{font-size:8px}
+ .stats{gap:7px}
+ .stat{padding:12px}
+}
+html[data-theme="dark"]{
+ --brand-strong:#72e0bc;
+ --brand-soft:rgba(46,150,119,.18);
+ --surface-outline:rgba(143,184,211,.19);
+ --elevation-1:0 7px 20px rgba(0,0,0,.18);
+ --elevation-2:0 16px 36px rgba(0,0,0,.25);
+ --elevation-3:0 24px 62px rgba(0,0,0,.38);
+}
+html[data-theme="dark"] .panel,html[data-theme="dark"] .stat{
+ box-shadow:var(--elevation-1),var(--glass-edge);
+}
+html[data-theme="dark"] .panel-head h3 svg{color:#72e0bc}
+html[data-theme="dark"] .primary,html[data-theme="dark"] .ui-button.primary{
+ box-shadow:0 9px 24px rgba(14,177,139,.17),inset 0 1px 0 rgba(255,255,255,.28)
+}
+html[data-theme="dark"] :where(button,input,select,textarea,a,[role="button"]):focus-visible{
+ outline-color:#72e0bc;box-shadow:0 0 0 4px rgba(54,198,160,.17)
+}
+html[data-theme="dark"] .nav.active{box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 7px 20px rgba(0,0,0,.2)}
+html[data-theme="dark"] .table-wrap{box-shadow:0 8px 24px rgba(0,0,0,.2)}
+@media(prefers-reduced-motion:reduce){
+ *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
