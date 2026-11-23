@@ -1,7 +1,10 @@
 /* Hallmark · v2.0.0 · redesign: full · scope: app · theme: Dose · deal: manual · pharmacy match · built: Naufal Farma POS
  * Hallmark · pre-emit critique: P5 H5 E4 S5 R4 V4 · weakest: E, keep transactional controls direct and familiar while reshaping the shell
  */
-@import url('https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;
+
+@layer hallmark {
+600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap');
 
 :root{
  --hm-paper:#f5f4ec;--hm-paper-2:#eeefe5;--hm-paper-3:#e4eadf;--hm-ink:#20362e;--hm-ink-2:#385247;--hm-muted:#6f8176;--hm-rule:#d6ded3;
@@ -204,3 +207,5 @@ html[data-theme="dark"] .soft-btn,html[data-theme="dark"] .ui-button.soft-btn,ht
 html[data-theme="dark"] .ui-modal-backdrop{background:var(--hm-overlay)}
 html[data-theme="dark"] .hallmark-nav{box-shadow:none}
 @media(max-width:720px){html[data-theme="dark"] .hallmark-nav{background:var(--hm-white);box-shadow:var(--hm-nav-shadow)}}
+
+}
