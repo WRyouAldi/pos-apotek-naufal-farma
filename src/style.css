@@ -511,3 +511,121 @@ html:not([data-theme="dark"]) .nav-menu .nav-submenu{
  html:not([data-theme="dark"]) .topbar{background:#f7fbff}
  html:not([data-theme="dark"]) .welcome{background:#f5faff}
 }
+
+
+/* Consistency pass — every operational surface follows the same pearl/glass grammar. */
+:root{
+ --radius-xs:11px;--radius-sm:15px;--radius-md:19px;--radius-lg:24px;--radius-xl:30px;
+ --surface-stroke:rgba(255,255,255,.82);
+}
+html:not([data-theme="dark"]) .stat-icon,
+html:not([data-theme="dark"]) .section-count,
+html:not([data-theme="dark"]) .theme-option,
+html:not([data-theme="dark"]) .qty-control button,
+html:not([data-theme="dark"]) .scan-search-btn{
+ border-color:rgba(255,255,255,.88);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.96),0 5px 16px rgba(45,88,130,.07);
+}
+html:not([data-theme="dark"]) .stat-icon-1,
+html:not([data-theme="dark"]) .stat-icon-2,
+html:not([data-theme="dark"]) .stat-icon-3{
+ background:linear-gradient(145deg,rgba(255,255,255,.88),rgba(225,239,250,.64));
+ color:#5684aa;
+}
+html:not([data-theme="dark"]) .primary{
+ border:1px solid rgba(255,255,255,.82);
+ border-radius:var(--radius-sm);
+ background:linear-gradient(135deg,#397eae 0%,#579fc5 52%,#68b6cc 100%);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.32),0 8px 22px rgba(48,112,157,.17);
+}
+html:not([data-theme="dark"]) .primary:hover{
+ background:linear-gradient(135deg,#316f9f,#4a91ba 55%,#5ca9c2);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.38),0 11px 25px rgba(48,112,157,.20);
+}
+html:not([data-theme="dark"]) .product-pick{
+ margin:3px 0;padding:13px 12px;border:1px solid rgba(255,255,255,.48);
+ border-radius:16px;background:rgba(255,255,255,.26);color:#294a68;
+ transition:background var(--motion-normal) var(--ease),border-color var(--motion-normal) var(--ease),transform var(--motion-fast) var(--ease),box-shadow var(--motion-normal) var(--ease);
+}
+html:not([data-theme="dark"]) .product-pick:hover{
+ border-color:rgba(255,255,255,.94);background:rgba(255,255,255,.70);
+ box-shadow:inset 0 1px 0 #fff,0 7px 20px rgba(45,88,130,.08);transform:translateY(-1px);
+}
+html:not([data-theme="dark"]) .product-pick small{color:#8198ad}
+html:not([data-theme="dark"]) .product-pick b{color:#356f9d}
+html:not([data-theme="dark"]) .qty-control{
+ padding:4px;border:1px solid rgba(255,255,255,.76);border-radius:15px;
+ background:rgba(255,255,255,.42);box-shadow:inset 0 1px 0 rgba(255,255,255,.86);
+}
+html:not([data-theme="dark"]) .qty-control button{
+ min-width:30px;min-height:30px;border-radius:10px;background:rgba(255,255,255,.72);color:#477da6;
+}
+html:not([data-theme="dark"]) .cart-row{
+ padding:12px 0;border-bottom:1px solid rgba(255,255,255,.70);
+}
+html:not([data-theme="dark"]) .cart-row>strong{color:#315f85}
+html:not([data-theme="dark"]) .cart-info small{color:#8197ad}
+html:not([data-theme="dark"]) .table-wrap{
+ overflow:auto;border:1px solid rgba(255,255,255,.84);border-radius:19px;
+ background:rgba(255,255,255,.38);box-shadow:inset 0 1px 0 rgba(255,255,255,.88),0 8px 24px rgba(43,82,120,.055);
+}
+html:not([data-theme="dark"]) th{
+ color:#55728e;background:rgba(239,247,253,.78);border-color:rgba(255,255,255,.9);
+}
+html:not([data-theme="dark"]) td{color:#45627e;border-color:rgba(255,255,255,.74)}
+html:not([data-theme="dark"]) tbody tr:hover{background:rgba(255,255,255,.56)}
+html:not([data-theme="dark"]) .row,
+html:not([data-theme="dark"]) .report-row{
+ border-color:rgba(255,255,255,.72);color:#59758f;
+}
+html:not([data-theme="dark"]) .row b,
+html:not([data-theme="dark"]) .report-row b,
+html:not([data-theme="dark"]) .report-row strong{color:#315c80}
+html:not([data-theme="dark"]) .report-tools{
+ border:1px solid rgba(255,255,255,.82);border-radius:19px;
+ background:rgba(255,255,255,.40);box-shadow:inset 0 1px 0 rgba(255,255,255,.9);
+}
+html:not([data-theme="dark"]) .report-tools label{color:#6e879e}
+html:not([data-theme="dark"]) .report-tools input{
+ border-radius:13px;color:#315675;background:rgba(255,255,255,.70);
+}
+html:not([data-theme="dark"]) .notice,
+html:not([data-theme="dark"]) .empty-state{
+ border-color:rgba(255,255,255,.82);border-radius:17px;
+ background:rgba(255,255,255,.46);color:#607d97;
+}
+html:not([data-theme="dark"]) .section-count{
+ display:inline-grid;place-items:center;min-width:25px;height:25px;padding:0 7px;
+ border:1px solid rgba(255,255,255,.86);border-radius:999px;
+ color:#477da5;background:rgba(255,255,255,.56);font-size:11px;font-weight:750;
+}
+html:not([data-theme="dark"]) .theme-option{
+ border-radius:18px;background:rgba(255,255,255,.42);color:#456784;
+}
+html:not([data-theme="dark"]) .theme-option.selected{
+ border-color:rgba(112,180,220,.66);background:linear-gradient(135deg,rgba(255,255,255,.88),rgba(218,240,253,.72));
+ box-shadow:inset 0 1px 0 #fff,0 0 0 2px rgba(105,173,215,.10),0 8px 20px rgba(54,111,153,.08);
+}
+html:not([data-theme="dark"]) .theme-option small{color:#8299ad}
+html:not([data-theme="dark"]) .toast{
+ border:1px solid rgba(255,255,255,.84);border-radius:18px;
+ -webkit-backdrop-filter:blur(var(--blur-toast)) saturate(170%);backdrop-filter:blur(var(--blur-toast)) saturate(170%);
+}
+html[data-theme="dark"] .product-pick{border:1px solid rgba(164,207,244,.12);border-radius:16px;background:rgba(16,37,59,.34)}
+html[data-theme="dark"] .product-pick:hover{border-color:rgba(164,207,244,.28);background:rgba(52,91,126,.26)}
+html[data-theme="dark"] .qty-control{padding:4px;border:1px solid rgba(164,207,244,.16);border-radius:15px;background:rgba(7,22,38,.38)}
+html[data-theme="dark"] .table-wrap{border-radius:19px;overflow:auto}
+html[data-theme="dark"] .section-count{display:inline-grid;place-items:center;min-width:25px;height:25px;padding:0 7px;border-radius:999px}
+html[data-theme="dark"] .primary{border-radius:var(--radius-sm)}
+@media(max-width:700px){
+ .product-pick{min-height:60px}
+ .cart-row{gap:9px}
+ .table-wrap{border-radius:15px}
+ .report-row{gap:10px}
+}
+@media(prefers-reduced-transparency:reduce){
+ html:not([data-theme="dark"]) .product-pick,html:not([data-theme="dark"]) .qty-control,
+ html:not([data-theme="dark"]) .table-wrap,html:not([data-theme="dark"]) .report-tools{
+  background:#f7fbff;
+ }
+}
