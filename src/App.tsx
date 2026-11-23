@@ -1,7 +1,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import Papa from 'papaparse';
 import {db,type Product,type Sale,type Movement} from './db';
-import {Activity,ArrowDownToLine,ArrowUpFromLine,BarChart3,Boxes,Camera,ChevronDown,Home,Package,Search,Settings,ShoppingCart,Upload,WifiOff} from 'lucide-react';
+import {Activity,ArrowDownToLine,ArrowUpFromLine,BarChart3,Boxes,Camera,ChevronDown,Home,Package,Search,Settings,ShoppingCart,Upload,WifiOff,Download,FileUp} from 'lucide-react';
 import {Html5Qrcode} from 'html5-qrcode';
 type Tab='Dashboard'|'Kasir'|'Cek Harga'|'Barang'|'Barang Masuk'|'Barang Keluar'|'Laporan'|'Pengaturan';
 const tabs:Tab[]=['Dashboard','Kasir','Cek Harga','Barang','Barang Masuk','Barang Keluar','Laporan','Pengaturan'];
@@ -95,6 +95,28 @@ export default function App(){
   },error:()=>{setBusy(false);setNotice('File CSV tidak dapat dibaca.')}});
  }
  async function startScan(){setScan(true);setTimeout(async()=>{try{const q=new Html5Qrcode('barcode-reader');await q.start({facingMode:'environment'},{fps:10,qrbox:{width:240,height:120}},v=>{setQuery(v);void q.stop();setScan(false)},()=>{})}catch{setNotice('Kamera tidak tersedia atau izin belum diberikan.')}},150)}
+ async function backupAll(){
+  try{setBusy(true);const payload={format:'naufal-farma-pos-backup',version:1,createdAt:new Date().toISOString(),data:{products:await db.products.toArray(),sales:await db.sales.toArray(),movements:await db.movements.toArray()}};
+   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+   a.href=url;a.download='backup-naufal-farma-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);setNotice('Backup lengkap berhasil dibuat. Simpan file di tempat aman.');
+  }catch(e){setNotice('Backup gagal: '+String(e))}finally{setBusy(false)}
+ }
+ async function restoreAll(file:File){
+  if(busy)return;
+  if(!window.confirm('Pemulihan akan MENGGANTI seluruh produk, transaksi, dan mutasi lokal. Buat backup terbaru terlebih dahulu. Lanjutkan?'))return;
+  setBusy(true);
+  try{
+   const raw=JSON.parse(await file.text());
+   if(raw?.format!=='naufal-farma-pos-backup'||raw?.version!==1||!Array.isArray(raw?.data?.products)||!Array.isArray(raw?.data?.sales)||!Array.isArray(raw?.data?.movements))throw new Error('Format backup tidak dikenali atau tidak didukung.');
+   const ps:Product[]=raw.data.products.map((p:any)=>{if(typeof p.code!=='string'||!p.code.trim()||typeof p.name!=='string'||!p.name.trim())throw new Error('Data produk tidak valid.');for(const k of ['stock','buyPrice','sellPrice','minStock'])if(!Number.isFinite(p[k]))throw new Error('Angka produk tidak valid: '+p.code);return{...p,code:p.code.trim(),name:p.name.trim()}});
+   const ss:Sale[]=raw.data.sales.map((v:any)=>{if(typeof v.createdAt!=='string'||!Number.isFinite(v.total)||!Array.isArray(v.items))throw new Error('Data transaksi tidak valid.');for(const it of v.items)if(typeof it.code!=='string'||!Number.isSafeInteger(it.qty)||it.qty<1||!Number.isFinite(it.price)||!Number.isFinite(it.cost))throw new Error('Rincian transaksi tidak valid.');return v});
+   const ms:Movement[]=raw.data.movements.map((v:any)=>{if(typeof v.createdAt!=='string'||!['MASUK','KELUAR','PENJUALAN'].includes(v.type)||typeof v.code!=='string'||!Number.isSafeInteger(v.qty)||!Number.isFinite(v.unitCost))throw new Error('Data mutasi tidak valid.');return v});
+   const codes=new Set<string>();for(const p of ps){if(codes.has(p.code))throw new Error('Kode produk duplikat: '+p.code);codes.add(p.code)}
+   await db.transaction('rw',db.products,db.sales,db.movements,async()=>{await db.products.clear();await db.sales.clear();await db.movements.clear();await db.products.bulkAdd(ps);await db.sales.bulkAdd(ss);await db.movements.bulkAdd(ms)});
+   await refresh();setCart([]);setNotice('Pemulihan selesai: '+ps.length+' produk, '+ss.length+' transaksi, '+ms.length+' mutasi.');
+  }catch(e){setNotice('Pemulihan dibatalkan: '+(e instanceof Error?e.message:String(e)))}
+  finally{setBusy(false)}
+ }
  const exportCSV=()=>{const csv=Papa.unparse(products.map(p=>({'Kode Item':p.code,'Kode Barcode':p.barcode,'Nama Item':p.name,'Jenis':p.category,'Merek':p.brand,'Stok':p.stock,'Satuan':p.unit,'Harga Beli':p.buyPrice,'Harga Jual':p.sellPrice,'Stok Min':p.minStock,'Rak':p.shelf,'Supplier':p.supplier})));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='backup-produk.csv';a.click();URL.revokeObjectURL(a.href)};
  return <div className="app"><nav className="topbar" aria-label="Navigasi utama">
  <div className="brand"><span className="brandmark">N</span><div><b>NAUFAL FARMA</b><small>POINT OF SALE</small></div></div>
@@ -126,6 +148,6 @@ export default function App(){
  {(tab==='Cek Harga'||tab==='Barang')&&<section className="panel"><div className="panel-head"><h3>{tab==='Barang'?'Master barang':'Pencarian harga produk'}</h3>{tab==='Barang'&&<label className="soft-btn upload"><Upload size={16}/> Impor CSV<input type="file" accept=".csv" onChange={e=>e.target.files?.[0]&&void importCSV(e.target.files[0])}/></label>}</div><input className="search" placeholder="Cari nama, kode, atau barcode..." value={query} onChange={e=>setQuery(e.target.value)}/><div className="table-wrap"><table><thead><tr><th>Nama</th><th>Kode</th><th>Stok</th><th>Harga beli</th><th>Harga jual</th></tr></thead><tbody>{filtered.map(p=><tr key={p.code}><td>{p.name}</td><td>{p.code}</td><td>{p.stock} {p.unit}</td><td>{tab==='Barang'?money(p.buyPrice):'—'}</td><td>{money(p.sellPrice)}</td></tr>)}</tbody></table></div></section>}
  {(tab==='Barang Masuk'||tab==='Barang Keluar')&&<section className="panel"><h3>{tab}</h3><input className="search" placeholder="Kode item atau barcode" value={query} onChange={e=>setQuery(e.target.value)}/><p>{products.find(p=>p.code===query||p.barcode===query)?.name||'Masukkan kode produk yang tepat.'}</p><button className="primary" onClick={()=>void moveStock(tab==='Barang Masuk'?'MASUK':'KELUAR')}>Catat mutasi</button><h3>Riwayat mutasi</h3>{moves.filter(m=>m.type===(tab==='Barang Masuk'?'MASUK':'KELUAR')).slice(-30).reverse().map((m,i)=><p className="row" key={i}>{m.createdAt.slice(0,16)} · {m.name} · {m.qty}</p>)}</section>}
  {tab==='Laporan'&&<section className="panel"><div className="panel-head"><h3>Riwayat penjualan</h3><b>Omzet: {money(sales.reduce((a,s)=>a+s.total,0))}</b></div>{sales.slice(-100).reverse().map((s,i)=><p className="row" key={i}>{s.createdAt.slice(0,16)} · {s.items.map(x=>x.name+' ×'+x.qty).join(', ')} <b>{money(s.total)}</b></p>)}</section>}
- {tab==='Pengaturan'&&<section className="panel"><h3>Pengaturan & data</h3><p>Data disimpan lokal di perangkat. Ekspor backup master produk secara berkala.</p><button className="soft-btn" onClick={exportCSV}>Unduh backup produk CSV</button>{busy&&<p>Memproses CSV...</p>}<div className="notice"><WifiOff/><div><b>Belum ada sinkronisasi cloud</b><p>GitHub menyimpan kode dan hasil build, bukan database transaksi real-time. Data kasir tidak otomatis berpindah perangkat.</p></div></div></section>}
+ {tab==='Pengaturan'&&<section className="panel"><h3>Backup & pemulihan data</h3><p>Backup lengkap mencakup master produk, transaksi, dan mutasi stok. Simpan salinan di luar perangkat secara berkala.</p><div className="panel-head"><button className="primary" disabled={busy} onClick={()=>void backupAll()}><Download size={16}/> Backup lengkap (JSON)</button><label className="soft-btn upload"><FileUp size={16}/> Pulihkan backup<input type="file" accept=".json,application/json" disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(file)void restoreAll(file);e.currentTarget.value=''}}/></label></div><button className="soft-btn" disabled={busy} onClick={exportCSV}><Download size={16}/> Ekspor master produk CSV</button>{busy&&<p>Memproses data, jangan tutup aplikasi...</p>}<div className="notice"><WifiOff/><div><b>Database lokal perangkat</b><p>Backup JSON adalah salinan pemulihan penuh. CSV hanya berisi master produk, bukan transaksi. Pemulihan mengganti data lokal saat ini. Sinkronisasi cloud belum tersedia.</p></div></div></section>}
  </main>{scan&&<div className="modal"><div className="scan-card"><div id="barcode-reader"/><button className="soft-btn" onClick={()=>setScan(false)}>Tutup pemindai</button></div></div>}</div>
 }
