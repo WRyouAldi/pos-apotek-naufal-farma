@@ -71,6 +71,10 @@ function productsFromCSV(parsed:ReturnType<typeof parseMasterCSV>){
  return {list,skipped};
 }
 
+function readProductOverrides():Record<string,Partial<Product>>{try{return JSON.parse(localStorage.getItem('naufal-farma:product-overrides')||'{}')}catch{return {}}}
+function writeProductOverrides(value:Record<string,Partial<Product>>){try{localStorage.setItem('naufal-farma:product-overrides',JSON.stringify(value))}catch{}}
+function readDeletedProductCodes():string[]{try{return JSON.parse(localStorage.getItem('naufal-farma:deleted-product-codes')||'[]')}catch{return []}}
+function writeDeletedProductCodes(value:string[]){try{localStorage.setItem('naufal-farma:deleted-product-codes',JSON.stringify([...new Set(value)]))}catch{}}
 export default function App(){
  const [theme,setTheme]=useState<'light'|'dark'>(()=>{try{return localStorage.getItem('naufal-farma:theme')==='dark'?'dark':'light'}catch{return 'light'}}),[tab,setTab]=useState<Tab>('Dashboard'),[reportFrom,setReportFrom]=useState(''),[reportTo,setReportTo]=useState(''),[pdfBusy,setPdfBusy]=useState(false),[openMenu,setOpenMenu]=useState<'Produk'|'Persediaan'|null>(null),[products,setProducts]=useState<Product[]>([]),[productDialog,setProductDialog]=useState(false),[editingProduct,setEditingProduct]=useState<Product|null>(null),[productForm,setProductForm]=useState({code:'',barcode:'',name:'',category:'',brand:'',stock:'0',unit:'pcs',buyPrice:'0',sellPrice:'0',minStock:'0',shelf:'',supplier:''}),[sales,setSales]=useState<Sale[]>([]),[moves,setMoves]=useState<Movement[]>([]),[query,setQuery]=useState(''),[cart,setCart]=useState<{p:Product,qty:number}[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[scan,setScan]=useState(false),[stockDialog,setStockDialog]=useState<'MASUK'|'KELUAR'|null>(null),[stockQty,setStockQty]=useState(''),[syncing,setSyncing]=useState(false),[syncState,setSyncState]=useState<'online'|'offline'|'syncing'|'error'>('offline'),[lastSync,setLastSync]=useState(()=>{try{return localStorage.getItem('naufal-farma:last-csv-sync')||''}catch{return ''}}); const syncLock=useRef(false); const scannerRef=useRef<Html5Qrcode|null>(null),scanTimerRef=useRef<number|undefined>(undefined);
  useEffect(()=>{document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;const meta=document.querySelector('meta[name="theme-color"]');meta?.setAttribute('content',theme==='dark'?'#071b19':'#f1f0ee');try{localStorage.setItem('naufal-farma:theme',theme)}catch{}},[theme]);
@@ -100,11 +104,14 @@ export default function App(){
    const {list:incoming,skipped}=productsFromCSV(parsed);
    if(incoming.length<100)throw new Error('CSV GitHub tidak lengkap: hanya '+incoming.length+' produk valid. Data lokal tidak diubah.');
    const existing=await db.products.toArray(),byCode=new Map(existing.map(p=>[p.code,p]));
+   const overrides=readProductOverrides(),deleted=new Set(readDeletedProductCodes());
    await db.transaction('rw',db.products,async()=>{
     for(const item of incoming){
+     if(deleted.has(item.code))continue;
+     const merged={...item,...(overrides[item.code]||{})};
      const old=byCode.get(item.code);
-     if(old&&old.id)await db.products.update(old.id,{...item,stock:old.stock,barcode:item.barcode||old.barcode});
-     else await db.products.add(item);
+     if(old&&old.id)await db.products.update(old.id,{...merged,stock:overrides[item.code]?.stock??old.stock,barcode:merged.barcode||old.barcode});
+     else await db.products.add(merged);
     }
    });
    await refresh();const syncedAt=new Date().toISOString();setLastSync(syncedAt);try{localStorage.setItem('naufal-farma:last-csv-sync',syncedAt)}catch{}setSyncState('online');
@@ -195,9 +202,15 @@ export default function App(){
    const payload:Product={code,barcode:productForm.barcode.trim(),name,category:productForm.category.trim(),brand:productForm.brand.trim(),stock,unit:productForm.unit.trim()||'pcs',buyPrice,sellPrice,minStock,shelf:productForm.shelf.trim(),supplier:productForm.supplier.trim()};
    if(editingProduct?.id){
     await db.products.update(editingProduct.id,payload);
+    if(editingProduct.code!==code){
+     const deleted=readDeletedProductCodes();writeDeletedProductCodes([...deleted,editingProduct.code]);
+     const overrides=readProductOverrides();delete overrides[editingProduct.code];writeProductOverrides({...overrides,[code]:payload});
+    }else{const overrides=readProductOverrides();writeProductOverrides({...overrides,[code]:payload})}
     setNotice('Master barang berhasil diperbarui.');
    }else{
     await db.products.add(payload);
+    const deleted=readDeletedProductCodes().filter(value=>value!==code);writeDeletedProductCodes(deleted);
+    const overrides=readProductOverrides();writeProductOverrides({...overrides,[code]:payload});
     setNotice('Barang baru berhasil ditambahkan.');
    }
    await refresh();setProductDialog(false);setEditingProduct(null);
@@ -210,6 +223,8 @@ export default function App(){
   setBusy(true);
   try{
    await db.products.delete(product.id);
+   writeDeletedProductCodes([...readDeletedProductCodes(),product.code]);
+   const overrides=readProductOverrides();delete overrides[product.code];writeProductOverrides(overrides);
    setCart(current=>current.filter(item=>item.p.code!==product.code));
    await refresh();setNotice('Barang berhasil dihapus dari master lokal.');
   }catch(e){setNotice('Hapus barang gagal: '+(e instanceof Error?e.message:String(e)))}
