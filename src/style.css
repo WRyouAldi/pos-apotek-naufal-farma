@@ -297,3 +297,140 @@ html[data-theme="dark"] .nav-menu{border-color:rgba(170,205,238,.20)}
  html[data-theme="dark"] .panel,html[data-theme="dark"] .stat,
  html[data-theme="dark"] .nav-menu,html[data-theme="dark"] .ui-modal{backdrop-filter:none;-webkit-backdrop-filter:none}
 }
+
+
+/* Crystal Liquid 2.0 — shared visual language, not isolated glass effects. */
+:root{
+ --blur-control:10px;--blur-card:18px;--blur-panel:24px;--blur-menu:28px;
+ --blur-header:30px;--blur-nav:30px;--blur-modal:30px;--blur-toast:22px;
+ --glass-control:rgba(255,255,255,.48);--glass-card:rgba(255,255,255,.48);
+ --glass-panel:rgba(255,255,255,.42);--glass-menu:rgba(248,252,255,.70);
+ --glass-border:rgba(255,255,255,.62);
+ --shadow-card:0 18px 48px rgba(24,65,108,.10);
+}
+body{
+ background:
+  radial-gradient(ellipse at 8% 4%,rgba(94,205,245,.40),transparent 35%),
+  radial-gradient(ellipse at 94% 12%,rgba(117,143,237,.30),transparent 34%),
+  radial-gradient(ellipse at 52% 88%,rgba(170,224,248,.34),transparent 44%),
+  linear-gradient(145deg,#e9f5ff 0%,#e7effb 48%,#f5f9ff 100%);
+ background-attachment:fixed;
+}
+.topbar{
+ background:linear-gradient(115deg,rgba(5,24,53,.66),rgba(15,51,91,.48));
+ border-bottom-color:rgba(255,255,255,.30);
+ box-shadow:0 14px 42px rgba(5,25,55,.14),inset 0 1px 0 rgba(255,255,255,.18);
+}
+.stat,.panel{
+ background:linear-gradient(145deg,rgba(255,255,255,.58),rgba(255,255,255,.30));
+ border-color:rgba(255,255,255,.76);
+ -webkit-backdrop-filter:blur(var(--blur-panel)) saturate(175%);
+ backdrop-filter:blur(var(--blur-panel)) saturate(175%);
+ box-shadow:0 18px 48px rgba(24,65,108,.10),inset 0 1px 0 rgba(255,255,255,.78),inset 0 -1px 0 rgba(255,255,255,.24);
+}
+.stat{background:linear-gradient(145deg,rgba(255,255,255,.64),rgba(255,255,255,.34));}
+.panel:before,.stat:before{
+ content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+ background:linear-gradient(125deg,rgba(255,255,255,.30),transparent 34%,transparent 72%,rgba(143,208,255,.08));
+}
+.panel>* ,.stat>*{position:relative;z-index:1}
+.panel h3{ text-shadow:0 1px 0 rgba(255,255,255,.42)}
+.search,.ui-input,.stock-dialog .ui-input,.report-tools input{
+ background:rgba(255,255,255,.48);
+ border-color:rgba(255,255,255,.82);
+ -webkit-backdrop-filter:blur(var(--blur-control)) saturate(160%);
+ backdrop-filter:blur(var(--blur-control)) saturate(160%);
+ box-shadow:inset 0 1px 2px rgba(34,73,113,.05),inset 0 1px 0 rgba(255,255,255,.85),0 5px 16px rgba(28,70,112,.035);
+}
+.soft-btn,.ui-ghost,.scan-search-btn,.qty-control button{
+ -webkit-backdrop-filter:blur(14px) saturate(165%);
+ backdrop-filter:blur(14px) saturate(165%);
+ border-color:rgba(255,255,255,.78);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.88),0 7px 20px rgba(26,67,108,.07);
+}
+.nav-menu .nav-submenu,.ui-modal,.notice,.report-tools,.table-wrap,.empty-state,.toast{
+ -webkit-backdrop-filter:blur(var(--blur-panel)) saturate(170%);
+ backdrop-filter:blur(var(--blur-panel)) saturate(170%);
+}
+.nav-menu .nav-submenu{
+ background:rgba(248,252,255,.64);
+ box-shadow:0 24px 65px rgba(10,42,78,.20),inset 0 1px 0 rgba(255,255,255,.84);
+}
+.nav-submenu button{border:1px solid transparent}
+.nav-submenu button:hover,.nav-submenu button.selected{
+ background:linear-gradient(120deg,rgba(191,229,255,.68),rgba(219,246,255,.52));
+ border-color:rgba(255,255,255,.75);
+}
+.nav-menu{box-shadow:0 18px 48px rgba(4,20,43,.25),inset 0 1px 0 rgba(255,255,255,.24)}
+.ui-modal{
+ background:linear-gradient(145deg,rgba(255,255,255,.78),rgba(236,247,255,.66));
+ border-color:rgba(255,255,255,.88);
+ box-shadow:0 30px 90px rgba(3,18,40,.28),inset 0 1px 0 rgba(255,255,255,.96);
+}
+.notice,.report-tools{background:rgba(255,255,255,.42);border-color:rgba(255,255,255,.74)}
+.table-wrap{background:rgba(255,255,255,.30)}
+th{background:rgba(232,244,255,.62);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+.toast{box-shadow:0 18px 48px rgba(12,71,50,.14),inset 0 1px 0 rgba(255,255,255,.92)}
+@media(max-width:700px){
+ :root{--blur-panel:18px;--blur-card:16px;--blur-nav:28px}
+ .nav-menu{background:rgba(5,24,53,.66);border-color:rgba(255,255,255,.32)}
+ .main{padding-top:20px}
+ .panel{box-shadow:0 14px 36px rgba(24,65,108,.09),inset 0 1px 0 rgba(255,255,255,.78)}
+}
+@media(prefers-reduced-transparency:reduce){
+ .stat,.panel,.search,.ui-input,.soft-btn,.ui-ghost,.ui-modal,.nav-menu .nav-submenu,.notice,.report-tools,.table-wrap,.empty-state,.toast{
+  -webkit-backdrop-filter:none;backdrop-filter:none;
+ }
+ .stat,.panel{background:rgba(255,255,255,.94)}
+}
+
+/* Dark Crystal Liquid surfaces: translucent blue-black glass with cool specular edges. */
+:root[data-theme="dark"]{
+ --glass-control:rgba(10,25,43,.58);--glass-card:rgba(17,37,60,.62);
+ --glass-panel:rgba(13,31,52,.60);--glass-menu:rgba(10,25,43,.76);
+ --glass-border:rgba(164,207,244,.26);
+ --shadow-card:0 20px 52px rgba(0,0,0,.30);
+}
+html[data-theme="dark"] body{
+ background:
+  radial-gradient(ellipse at 8% 4%,rgba(20,115,157,.30),transparent 36%),
+  radial-gradient(ellipse at 94% 12%,rgba(66,78,163,.26),transparent 35%),
+  radial-gradient(ellipse at 52% 88%,rgba(23,95,128,.18),transparent 45%),
+  linear-gradient(145deg,#061321 0%,#0a1b2e 50%,#071421 100%);
+ background-attachment:fixed;
+}
+html[data-theme="dark"] .stat,html[data-theme="dark"] .panel{
+ background:linear-gradient(145deg,rgba(23,48,75,.68),rgba(10,27,46,.58));
+ border-color:rgba(164,207,244,.25);
+ -webkit-backdrop-filter:blur(var(--blur-panel)) saturate(155%);
+ backdrop-filter:blur(var(--blur-panel)) saturate(155%);
+ box-shadow:0 20px 52px rgba(0,0,0,.28),inset 0 1px 0 rgba(205,232,255,.12),inset 0 -1px 0 rgba(205,232,255,.04);
+}
+html[data-theme="dark"] .panel:before,html[data-theme="dark"] .stat:before{
+ background:linear-gradient(125deg,rgba(176,220,255,.10),transparent 36%,transparent 72%,rgba(80,160,230,.08));
+}
+html[data-theme="dark"] .topbar{
+ background:linear-gradient(115deg,rgba(3,15,29,.72),rgba(12,39,65,.58));
+ border-bottom-color:rgba(164,207,244,.20);
+}
+html[data-theme="dark"] .search,html[data-theme="dark"] .ui-input,
+html[data-theme="dark"] .stock-dialog .ui-input,html[data-theme="dark"] .report-tools input{
+ background:rgba(5,19,34,.62);border-color:rgba(164,207,244,.24);
+ -webkit-backdrop-filter:blur(var(--blur-control)) saturate(150%);
+ backdrop-filter:blur(var(--blur-control)) saturate(150%);
+}
+html[data-theme="dark"] .soft-btn,html[data-theme="dark"] .ui-ghost,
+html[data-theme="dark"] .scan-search-btn,html[data-theme="dark"] .qty-control button{
+ background:linear-gradient(145deg,rgba(52,86,119,.62),rgba(23,48,74,.66));
+ border-color:rgba(164,207,244,.24);
+ box-shadow:inset 0 1px 0 rgba(220,240,255,.13),0 7px 22px rgba(0,0,0,.16);
+}
+html[data-theme="dark"] .nav-menu .nav-submenu,html[data-theme="dark"] .ui-modal{
+ background:linear-gradient(145deg,rgba(20,43,67,.82),rgba(7,23,40,.78));
+ border-color:rgba(164,207,244,.26);
+}
+html[data-theme="dark"] .notice,html[data-theme="dark"] .report-tools,
+html[data-theme="dark"] .table-wrap,html[data-theme="dark"] .empty-state{
+ background:rgba(15,37,59,.58);border-color:rgba(164,207,244,.22);
+}
+html[data-theme="dark"] th{background:rgba(20,43,67,.78)}
