@@ -2,7 +2,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import Papa from 'papaparse';
 import {jsPDF} from 'jspdf';
 import {db,type Product,type Sale,type Movement} from './db';
-import {Activity,ArrowDownToLine,ArrowUpFromLine,BarChart3,Boxes,Camera,ChevronDown,Home,Package,Search,Settings,ShoppingCart,Upload,WifiOff,Download,FileUp,Sparkles,Pill,TrendingUp,AlertTriangle,PackageCheck,ScanLine,ClipboardList,ShieldCheck} from 'lucide-react';
+import {Activity,ArrowDownToLine,ArrowUpFromLine,BarChart3,Boxes,Camera,ChevronDown,Home,Package,Search,Settings,ShoppingCart,ShoppingBag,Upload,WifiOff,Download,FileUp,Sparkles,Pill,TrendingUp,AlertTriangle,PackageCheck,ScanLine,ClipboardList,ShieldCheck} from 'lucide-react';
 import {Html5Qrcode} from 'html5-qrcode';
 import {UiButton,UiInput,UiModal} from './ui';
 type Tab='Dashboard'|'Kasir'|'Cek Harga'|'Barang'|'Barang Masuk'|'Barang Keluar'|'Laporan'|'Pengaturan';
