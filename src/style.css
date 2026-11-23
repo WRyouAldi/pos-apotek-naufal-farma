@@ -288,3 +288,7 @@ td{padding:13px 14px;border-top:1px solid #eaf0f6;color:#425b78}tbody tr:hover{b
 .stock-dialog h3{margin:0;color:#19395f;font-size:17px}
 .stock-dialog p{margin:0;color:#617a96;font-size:12px}
 .stock-dialog .ui-input{width:100%;min-height:48px;padding:10px 13px;border:1px solid #d9e5f1;border-radius:12px;background:#fff;font-size:16px}
+
+@media(max-width:700px){
+ .toast{top:auto;left:14px;right:14px;bottom:calc(154px + env(safe-area-inset-bottom));width:auto;max-width:none}
+}
