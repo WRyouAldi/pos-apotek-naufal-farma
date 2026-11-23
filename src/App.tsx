@@ -15,10 +15,33 @@ export default function App(){
  const filtered=useMemo(()=>products.filter(p=>[p.name,p.code,p.barcode].some(v=>v.toLowerCase().includes(query.toLowerCase()))),[products,query]);
  const today=new Date().toISOString().slice(0,10),todaySales=sales.filter(s=>s.createdAt.slice(0,10)===today),revenue=todaySales.reduce((a,s)=>a+s.total,0),profit=todaySales.reduce((a,s)=>a+s.items.reduce((b,i)=>b+(i.price-i.cost)*i.qty,0),0);
  function add(p:Product){setCart(c=>{const old=c.find(x=>x.p.code===p.code);return old?c.map(x=>x.p.code===p.code?{...x,qty:x.qty+1}:x):[...c,{p,qty:1}]})}
- async function checkout(){if(!cart.length)return;for(const x of cart){const p=await db.products.where('code').equals(x.p.code).first();if(!p||x.qty>p.stock){setNotice('Stok tidak cukup: '+x.p.name);return}}
- const sale:Sale={createdAt:new Date().toISOString(),total:cart.reduce((a,x)=>a+x.qty*x.p.sellPrice,0),items:cart.map(x=>({code:x.p.code,name:x.p.name,qty:x.qty,price:x.p.sellPrice,cost:x.p.buyPrice}))};
- await db.transaction('rw',db.products,db.sales,db.movements,async()=>{await db.sales.add(sale);for(const x of cart){const p=await db.products.where('code').equals(x.p.code).first();if(p?.id)await db.products.update(p.id,{stock:p.stock-x.qty});await db.movements.add({createdAt:new Date().toISOString(),type:'PENJUALAN',code:x.p.code,name:x.p.name,qty:-x.qty,unitCost:x.p.buyPrice,note:'Penjualan kasir'})}});
- setCart([]);await refresh();setNotice('Transaksi berhasil disimpan.')}
+ async function checkout(){
+  if(!cart.length||busy)return;setBusy(true);
+  try{
+   const lines=cart.map(x=>({code:x.p.code,qty:x.qty}));
+   if(lines.some(x=>!Number.isSafeInteger(x.qty)||x.qty<1))throw new Error('Jumlah harus bilangan bulat positif.');
+   await db.transaction('rw',db.products,db.sales,db.movements,async()=>{
+    const fresh:{p:Product;qty:number}[]=[];
+    for(const line of lines){
+     const p=await db.products.where('code').equals(line.code).first();
+     if(!p)throw new Error('Produk tidak ditemukan: '+line.code);
+     if(!Number.isFinite(p.stock)||line.qty>p.stock)throw new Error('Stok tidak cukup untuk '+p.name+'. Tersedia: '+p.stock);
+     if(!Number.isFinite(p.sellPrice)||p.sellPrice<0||!Number.isFinite(p.buyPrice)||p.buyPrice<0)throw new Error('Harga tidak valid: '+p.name);
+     fresh.push({p,qty:line.qty});
+    }
+    const sale:Sale={createdAt:new Date().toISOString(),total:fresh.reduce((a,x)=>a+x.qty*x.p.sellPrice,0),items:fresh.map(x=>({code:x.p.code,name:x.p.name,qty:x.qty,price:x.p.sellPrice,cost:x.p.buyPrice}))};
+    if(!Number.isFinite(sale.total)||sale.total<0)throw new Error('Total tidak valid.');
+    await db.sales.add(sale);
+    for(const x of fresh){
+     if(!x.p.id)throw new Error('Identitas produk tidak valid.');
+     await db.products.update(x.p.id,{stock:x.p.stock-x.qty});
+     await db.movements.add({createdAt:sale.createdAt,type:'PENJUALAN',code:x.p.code,name:x.p.name,qty:-x.qty,unitCost:x.p.buyPrice,note:'Penjualan kasir'});
+    }
+   });
+   setCart([]);await refresh();setNotice('Transaksi berhasil disimpan.');
+  }catch(e){setNotice('Transaksi dibatalkan: '+(e instanceof Error?e.message:String(e)));await refresh()}
+  finally{setBusy(false)}
+ }
  async function moveStock(type:'MASUK'|'KELUAR'){const p=products.find(x=>x.code===query||x.barcode===query);if(!p){setNotice('Pilih produk dengan kode atau barcode.');return}const qty=num(prompt('Jumlah '+(type==='MASUK'?'barang masuk':'barang keluar')+' untuk '+p.name));if(!qty||qty<1)return;if(type==='KELUAR'&&qty>p.stock){setNotice('Stok tidak cukup.');return}await db.transaction('rw',db.products,db.movements,async()=>{if(p.id)await db.products.update(p.id,{stock:p.stock+(type==='MASUK'?qty:-qty)});await db.movements.add({createdAt:new Date().toISOString(),type,code:p.code,name:p.name,qty:type==='MASUK'?qty:-qty,unitCost:p.buyPrice,note:type==='MASUK'?'Penerimaan':'Pengeluaran'})});await refresh();setNotice('Mutasi stok tersimpan.')}
  async function importCSV(file:File){setBusy(true);Papa.parse<Record<string,string>>(file,{header:true,skipEmptyLines:true,complete:async r=>{try{const list:Product[]=r.data.map(x=>{const get=(...keys:string[])=>{const k=Object.keys(x).find(a=>keys.includes(a.trim().toLowerCase()));return k?x[k]:''};return{code:get('kode item','kode'),barcode:get('kode barcode','barcode'),name:get('nama item','nama'),category:get('jenis','kategori'),brand:get('merek','brand'),stock:num(get('stok')),unit:get('satuan')||'pcs',buyPrice:num(get('harga beli')),sellPrice:num(get('harga jual')),minStock:num(get('stok min')),shelf:get('rak'),supplier:get('supplier')}}).filter(p=>p.code&&p.name);await db.transaction('rw',db.products,async()=>{for(const p of list)await db.products.put(p)});await refresh();setNotice(list.length+' produk diimpor. Stok mengikuti CSV.')}catch(e){setNotice('Impor gagal: '+String(e))}finally{setBusy(false)}}})}
  async function startScan(){setScan(true);setTimeout(async()=>{try{const q=new Html5Qrcode('barcode-reader');await q.start({facingMode:'environment'},{fps:10,qrbox:{width:240,height:120}},v=>{setQuery(v);void q.stop();setScan(false)},()=>{})}catch{setNotice('Kamera tidak tersedia atau izin belum diberikan.')}},150)}
