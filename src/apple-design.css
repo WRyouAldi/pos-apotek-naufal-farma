@@ -3278,10 +3278,109 @@ p,.dashboard-intro-copy small {
   backdrop-filter: blur(14px) saturate(155%);
 }
 
+/* Dashboard hero: native Apple Design component styles (not legacy .welcome aliases). */
 .dashboard-intro {
-  background: linear-gradient(135deg,rgba(226,242,229,.82),rgba(244,249,239,.64));
-  border-color: rgba(255,255,255,.82);
-  box-shadow: 0 18px 42px rgba(28,76,47,.075),inset 0 1px 0 rgba(255,255,255,.88);
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: center;
+  gap: clamp(16px,2.4vw,28px);
+  min-width: 0;
+  min-height: 190px;
+  margin: 0 0 20px;
+  padding: clamp(20px,3vw,30px);
+  overflow: hidden;
+  border: 1px solid var(--ad-border);
+  border-radius: var(--ad-radius-card);
+  color: var(--ad-text);
+  background: linear-gradient(135deg,rgba(226,242,229,.90),rgba(244,249,239,.78));
+  box-shadow: var(--ad-shadow-2),inset 0 1px 0 rgba(255,255,255,.88);
+}
+.dashboard-intro-copy {
+  display: grid;
+  align-content: center;
+  gap: 10px;
+  min-width: 0;
+}
+.dashboard-intro-copy p {
+  margin: 0;
+  color: var(--ad-brand);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: .04em;
+}
+.dashboard-intro-copy h2 {
+  max-width: 22ch;
+  margin: 0;
+  color: var(--ad-text);
+  font-size: clamp(23px,3vw,34px);
+  line-height: 1.12;
+  letter-spacing: -.045em;
+}
+.dashboard-intro-copy small {
+  max-width: 58ch;
+  color: var(--ad-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.dashboard-quick-actions {
+  display: grid;
+  grid-template-columns: minmax(0,1fr);
+  gap: 9px;
+  min-width: 156px;
+}
+.dashboard-quick-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 11px 15px;
+  border: 1px solid var(--ad-border);
+  border-radius: var(--ad-radius-control);
+  color: var(--ad-text);
+  background: var(--ad-surface-raised);
+  box-shadow: var(--ad-shadow-1);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.dashboard-quick-actions button:first-child {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(135deg,#16845f,#269b76);
+  box-shadow: 0 8px 20px rgba(22,132,95,.20);
+}
+.dashboard-quick-actions button svg { flex: none; width: 18px; height: 18px; }
+.dashboard-quick-actions button:focus-visible {
+  outline: 3px solid var(--ad-brand);
+  outline-offset: 3px;
+}
+@media (max-width: 720px) {
+  .dashboard-intro {
+    grid-template-columns: minmax(0,1fr);
+    gap: 16px;
+    min-height: 0;
+    padding: 20px 18px;
+  }
+  .dashboard-intro-copy h2 { max-width: 25ch; font-size: clamp(23px,6vw,30px); }
+  .dashboard-quick-actions {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    min-width: 0;
+  }
+  .dashboard-quick-actions button {
+    min-height: 48px;
+    padding-inline: 9px;
+    font-size: 11px;
+    white-space: normal;
+  }
+}
+@media (max-width: 360px) {
+  .dashboard-quick-actions { grid-template-columns: minmax(0,1fr); }
 }
 
 .panel,.stat,.table-wrap,.sync-status-card,.ui-modal {
