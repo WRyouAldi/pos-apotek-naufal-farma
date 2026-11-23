@@ -33,7 +33,7 @@ export default function App(){
    items.push({code,barcode:get('kode barcode','barcode'),name,category:get('jenis','kategori'),brand:get('merek','brand'),stock,unit:get('satuan')||'pcs',buyPrice,sellPrice,minStock,shelf:get('rak'),supplier:get('supplier')});
   }
   if(!items.length)throw new Error('Tidak ada produk valid pada master CSV.');
-  await db.products.bulkAdd(items);
+  await db.transaction('rw',db.products,async()=>{if(await db.products.count()===0)await db.products.bulkAdd(items)});
  }
  useEffect(()=>{void (async()=>{try{await seedProductsFromCSV()}catch(e){setNotice('Master CSV: '+(e instanceof Error?e.message:String(e)))}finally{await refresh()}})()},[]);
  useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),3200);return()=>clearTimeout(t)},[notice]);
