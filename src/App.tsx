@@ -309,12 +309,12 @@ export default function App(){
   try{
    const doc=new jsPDF({unit:'mm',format:'a4'}),left=14,right=196;let y=16;
    const from=reportFrom||'Awal',to=reportTo||'Hari ini';
-   doc.setFont('helvetica','bold');doc.setFontSize(16);doc.text('APOTEK NAUFAL FARMA',left,y);y+=7;
+   doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(24,83,58);doc.text('APOTEK NAUFAL FARMA',left,y);y+=7;
    doc.setFontSize(11);doc.text('LAPORAN PENJUALAN',left,y);y+=6;
    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text('Periode: '+from+' s.d. '+to,left,y);y+=8;
    const total=list.reduce((a,v)=>a+v.total,0),profitTotal=list.reduce((a,v)=>a+v.items.reduce((b,i)=>b+(i.price-i.cost)*i.qty,0),0);
    doc.setFont('helvetica','bold');doc.text('Jumlah transaksi: '+list.length,left,y);y+=5;doc.text('Omzet: '+money(total),left,y);y+=5;doc.text('Estimasi laba: '+money(profitTotal),left,y);y+=8;
-   const drawHead=()=>{doc.setFillColor(232,241,250);doc.rect(left,y,182,8,'F');doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('Waktu',left+2,y+5);doc.text('Rincian',left+38,y+5);doc.text('Total',right-2,y+5,{align:'right'});y+=11};
+   const drawHead=()=>{doc.setFillColor(222,239,228);doc.setDrawColor(183,211,190);doc.rect(left,y,182,8,'F');doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('Waktu',left+2,y+5);doc.text('Rincian',left+38,y+5);doc.text('Total',right-2,y+5,{align:'right'});y+=11};
    drawHead();doc.setFont('helvetica','normal');
    for(const sale of list){
     const details=doc.splitTextToSize(sale.items.map(i=>i.name+' x'+i.qty).join(', '),112);
