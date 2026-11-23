@@ -1,1 +1,15 @@
-{"name":"POS Apotek Naufal Farma","short_name":"Naufal Farma","start_url":"./","display":"standalone","background_color":"#071b3b","theme_color":"#071b3b","icons":[]}
+{
+  "id": "./",
+  "name": "POS Apotek Naufal Farma",
+  "short_name": "Naufal Farma",
+  "description": "Aplikasi kasir dan manajemen stok Apotek Naufal Farma.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#edf3fa",
+  "theme_color": "#071b3b",
+  "icons": [
+    { "src": "./app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
