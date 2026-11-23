@@ -23,12 +23,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .brand b{font-family:var(--hm-display);font-size:13px;letter-spacing:.025em;color:var(--hm-white)}
 .brand small{font-family:var(--hm-body);font-size:10px;letter-spacing:.04em;color:var(--hm-header-muted)}
 .top-status{font-size:12px;color:var(--hm-header-status)}.dot{width:7px;height:7px;background:var(--hm-dot);box-shadow:none}
-.hallmark-nav{grid-column:1;grid-row:2;position:sticky;top:72px;align-self:start;height:calc(100dvh - 72px);min-height:0;padding:26px 14px 24px;display:flex;flex-direction:column;align-items:stretch;gap:6px;background:var(--hm-paper-2);border-right:1px solid var(--hm-rule);border-top:0;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;overflow:visible}
+.hallmark-nav{grid-column:1;grid-row:2;position:sticky;top:72px;align-self:start;height:calc(100dvh - 72px);min-height:0;width:100%;margin:0;padding:26px 14px 24px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:6px;overflow:visible;background:var(--hm-paper-2);border-right:1px solid var(--hm-rule);border-top:0;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;overflow:visible}
 .nav,.nav-item{width:100%;min-width:0}.nav{min-height:48px;justify-content:flex-start;gap:12px;padding:0 14px;border:1px solid transparent;border-radius:11px;background:transparent;color:var(--hm-ink-2);font-size:14px;font-weight:600;box-shadow:none}
 .nav svg{width:18px;height:18px;flex:0 0 auto}.nav .chevron{margin-left:auto;width:14px}
 .nav:hover{background:var(--hm-white);color:var(--hm-ink);transform:none}
 .nav.active{background:var(--hm-green-soft);color:var(--hm-green-deep);border-color:var(--hm-nav-active-border);box-shadow:inset 3px 0 0 var(--hm-green)}
-.nav-submenu{position:static;width:100%;margin:5px 0 8px;padding:5px 0 5px 14px;border:0;border-left:1px solid var(--hm-rule);border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none}
+.hallmark-nav .nav-submenu{position:static;top:auto;right:auto;bottom:auto;left:auto;z-index:auto;width:100%;min-width:0;margin:5px 0 8px;padding:5px 0 5px 14px;border:0;border-left:1px solid var(--hm-rule);border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none}
 .nav-submenu button{min-height:42px;padding:0 12px;border-radius:9px;color:var(--hm-muted);font-size:13px}
 .nav-submenu button.selected{background:var(--hm-white);color:var(--hm-green-deep)}
 .hallmark-main{grid-column:2;grid-row:2;width:100%;max-width:1600px;margin:0 auto;padding:30px clamp(20px,3vw,48px) 56px;animation:none;min-width:0}
@@ -143,10 +143,10 @@ tbody tr:hover{background:var(--hm-paper)}
  .hallmark-topbar{position:sticky;top:0;height:62px;min-height:62px;padding:0 16px}
  .brandmark{width:36px;height:36px}.brand b{font-size:12px}.brand small{font-size:9px}
  .top-status{font-size:10px}
- .hallmark-nav{position:fixed;z-index:130;top:auto;right:0;bottom:0;left:0;width:100%;height:auto;min-height:0;padding:8px 7px calc(8px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:3px;border-top:1px solid var(--hm-rule);border-right:0;background:var(--hm-white);box-shadow:var(--hm-nav-shadow)}
+ .hallmark-nav{position:fixed;z-index:130;top:auto;right:0;bottom:0;left:0;width:100%;height:auto;min-height:0;width:100%;margin:0;padding:8px 7px calc(8px + env(safe-area-inset-bottom));border-radius:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:3px;border-top:1px solid var(--hm-rule);border-right:0;background:var(--hm-white);box-shadow:var(--hm-nav-shadow)}
  .nav,.nav-item{width:100%;min-width:0}.nav{min-height:54px;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:5px 2px;border-radius:9px;font-size:10px;line-height:1.1;text-align:center}
  .nav svg{width:18px;height:18px}.nav .chevron{display:none}.nav-item{display:contents}.nav-item>.nav{grid-row:1}
- .nav-submenu{position:fixed;bottom:calc(74px + env(safe-area-inset-bottom));left:8px;right:8px;width:auto;display:flex;gap:8px;padding:10px;border:1px solid var(--hm-rule);border-radius:13px;background:var(--hm-white);box-shadow:var(--hm-shadow-lift)}
+ .hallmark-nav .nav-submenu{position:fixed;top:auto;bottom:calc(74px + env(safe-area-inset-bottom));left:8px;right:8px;width:auto;display:flex;gap:8px;padding:10px;border:1px solid var(--hm-rule);border-radius:13px;background:var(--hm-white);box-shadow:var(--hm-shadow-lift)}
  .nav-submenu button{flex:1;justify-content:center;background:var(--hm-paper-2)}
  .hallmark-main{padding:22px 14px 34px}
  .screen-header{align-items:flex-start;margin-bottom:18px;padding-bottom:15px}
