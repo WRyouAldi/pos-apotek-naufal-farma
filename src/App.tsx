@@ -16,10 +16,10 @@ export default function App(){
   if(await db.products.count()>0)return;
   const response=await fetch(`${import.meta.env.BASE_URL}data/xReport2.csv`);
   if(!response.ok)throw new Error('File master CSV belum tersedia di aplikasi.');
-  const raw=await response.text(),lines=raw.split(/\\r?\\n/);
+  const raw=await response.text(),lines=raw.split(/\r?\n/);
   const headerAt=lines.findIndex(line=>/Kode Item/i.test(line)&&/Nama Item/i.test(line));
   if(headerAt<0)throw new Error('Header Kode Item dan Nama Item tidak ditemukan.');
-  const parsed=Papa.parse<Record<string,string>>(lines.slice(headerAt).join('\\n'),{header:true,delimiter:';',skipEmptyLines:'greedy',transformHeader:h=>h.replace(/^\\uFEFF/,'').trim().toLowerCase()});
+  const parsed=Papa.parse<Record<string,string>>(lines.slice(headerAt).join('\n'),{header:true,delimiter:';',skipEmptyLines:'greedy',transformHeader:h=>h.replace(/^\uFEFF/,'').trim().toLowerCase()});
   if(parsed.errors.length)throw new Error('Format master CSV tidak valid.');
   const seen=new Set<string>(),items:Product[]=[];
   for(const row of parsed.data){
