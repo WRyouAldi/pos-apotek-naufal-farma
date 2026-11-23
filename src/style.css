@@ -128,3 +128,20 @@ td{padding:13px 14px;border-top:1px solid #eaf0f6;color:#425b78}tbody tr:hover{b
 .qty-control{display:flex;align-items:center;gap:8px}.qty-control button{width:32px;height:36px;border:1px solid #d8e7f5;border-radius:10px;background:#f0f7ff;color:#1769b5;font-size:18px;font-weight:700}.qty-control b{min-width:16px;text-align:center;color:#19395f;font-size:12px}
 .cart-row>strong{color:#1769b5;font-size:11px;white-space:nowrap}.checkout-btn{position:sticky;bottom:calc(98px + env(safe-area-inset-bottom));z-index:10;box-shadow:0 8px 22px #1769c23b}
 @media(max-width:390px){.cart-row{grid-template-columns:minmax(0,1fr) auto}.cart-row>strong{grid-column:1/-1;text-align:right}}
+
+
+/* Shared UI system: one contract for controls, surfaces, icons and motion. */
+:root{--ui-control-radius:13px;--ui-control-height:44px;--ui-focus:0 0 0 4px rgba(88,166,231,.2);--ui-modal-shadow:0 28px 90px rgba(3,18,40,.38)}
+.ui-button{min-height:var(--ui-control-height);border-radius:var(--ui-control-radius)}
+.ui-button:focus-visible,.ui-input:focus-visible{outline:0;box-shadow:var(--ui-focus)}
+.ui-ghost{border:1px solid var(--line);background:transparent;color:var(--ink);padding:10px 14px;font-weight:700}
+.ui-input{font:inherit;color:var(--ink)}
+.ui-modal-backdrop{position:fixed;inset:0;z-index:140;display:grid;place-items:center;padding:18px;background:rgba(5,20,42,.62);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);animation:ui-fade-in var(--motion-fast) var(--ease) both}
+.ui-modal{position:relative;width:min(540px,100%);max-height:min(88dvh,760px);overflow:auto;padding:22px;border:1px solid rgba(255,255,255,.78);border-radius:24px;background:var(--surface-strong);box-shadow:var(--ui-modal-shadow);animation:ui-modal-in var(--motion-normal) var(--ease) both}
+.ui-modal-close{position:absolute;top:12px;right:12px;display:grid;place-items:center;width:36px;height:36px;border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--muted)}
+.scan-card-content{padding-top:24px}.scan-card-content #barcode-reader{overflow:hidden;border-radius:14px}
+.nav-submenu{transform-origin:top center;animation:ui-modal-in var(--motion-fast) var(--ease) both}
+@keyframes ui-fade-in{from{opacity:0}to{opacity:1}}
+@keyframes ui-modal-in{from{opacity:0;transform:translate3d(0,8px,0) scale(.985)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
+@media(max-width:700px){.ui-modal{padding:18px;border-radius:20px}.ui-modal-close{top:9px;right:9px}}
+@media(prefers-reduced-motion:reduce){.ui-modal-backdrop,.ui-modal,.nav-submenu{animation:none!important}}
