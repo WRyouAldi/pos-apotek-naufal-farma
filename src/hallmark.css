@@ -13,7 +13,7 @@
  color-scheme:light;
 }
 html,body{overflow-x:clip}
-body{font-family:var(--hm-body);font-size:15px;color:var(--hm-ink);background:var(--hm-paper);background-image:none}
+body{font-family:var(--hm-body);font-size:16px;color:var(--hm-ink);background:var(--hm-paper);background-image:none}
 button,input,select,textarea{font-family:var(--hm-body)}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[role="button"]:focus-visible{outline:3px solid var(--hm-focus);outline-offset:3px;transition:none}
 .app{display:grid;grid-template-columns:248px minmax(0,1fr);grid-template-rows:72px minmax(0,1fr);min-height:100dvh;background:var(--hm-paper);overflow:clip}
@@ -141,17 +141,17 @@ tbody tr:hover{background:var(--hm-paper)}
 @media(max-width:720px){
  .app{display:block;min-height:100dvh;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
  .hallmark-topbar{position:sticky;top:0;height:62px;min-height:62px;padding:0 16px}
- .brandmark{width:36px;height:36px}.brand b{font-size:12px}.brand small{font-size:9px}
- .top-status{font-size:10px}
+ .brandmark{width:36px;height:36px}.brand b{font-size:12px}.brand small{font-size:10px}
+ .top-status{font-size:11px}
  .hallmark-nav{position:fixed;z-index:130;top:auto;right:0;bottom:0;left:0;width:100%;height:auto;min-height:0;width:100%;margin:0;padding:8px 7px calc(8px + env(safe-area-inset-bottom));border-radius:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:3px;border-top:1px solid var(--hm-rule);border-right:0;background:var(--hm-white);box-shadow:var(--hm-nav-shadow)}
- .nav,.nav-item{width:100%;min-width:0}.nav{min-height:54px;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:5px 2px;border-radius:9px;font-size:10px;line-height:1.1;text-align:center}
+ .nav,.nav-item{width:100%;min-width:0}.nav{min-height:54px;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:5px 2px;border-radius:9px;font-size:11px;line-height:1.1;text-align:center}
  .nav svg{width:18px;height:18px}.nav .chevron{display:none}.nav-item{display:contents}.nav-item>.nav{grid-row:1}
  .hallmark-nav .nav-submenu{position:fixed;top:auto;bottom:calc(74px + env(safe-area-inset-bottom));left:8px;right:8px;width:auto;display:flex;gap:8px;padding:10px;border:1px solid var(--hm-rule);border-radius:13px;background:var(--hm-white);box-shadow:var(--hm-shadow-lift)}
  .nav-submenu button{flex:1;justify-content:center;background:var(--hm-paper-2)}
  .hallmark-main{padding:22px 14px 34px}
  .screen-header{align-items:flex-start;margin-bottom:18px;padding-bottom:15px}
  .main h1{font-size:29px}
- .online{max-width:155px;min-height:32px;padding:0 9px;font-size:10px;white-space:normal}
+ .online{max-width:155px;min-height:32px;padding:0 9px;font-size:11px;white-space:normal}
  .dashboard-intro{display:block;min-height:0;padding:22px 20px;margin-bottom:12px}
  .dashboard-intro-copy h2{font-size:34px}
  .dashboard-quick-actions{margin-top:18px}.dashboard-quick-actions button{flex:1;padding:0 10px;font-size:12px}
@@ -163,7 +163,7 @@ tbody tr:hover{background:var(--hm-paper)}
  .movement-page{padding:16px 14px}
  .movement-history-card{grid-template-columns:34px minmax(0,1fr) auto}
  .catalog-summary{gap:0}.catalog-summary>div{padding:4px 8px;grid-template-columns:22px 1fr}
- .catalog-summary>div svg{width:17px}.catalog-summary b{font-size:18px}.catalog-summary small{font-size:10px}
+ .catalog-summary>div svg{width:17px}.catalog-summary b{font-size:18px}.catalog-summary small{font-size:11px}
  .report-kpi-grid{grid-template-columns:1fr;gap:0}
  .report-kpi{grid-template-columns:34px 1fr;border-right:0;border-bottom:1px solid var(--hm-rule);padding:11px 4px}
  .report-kpi:last-child{border-bottom:0}
