@@ -21,7 +21,7 @@ export function GlassEnhancer({ children }: Props) {
 
     let scene: GlassScene | null = null;
     let disposed = false;
-    let surfaces: HTMLElement[] = [];
+    let edgeElements: HTMLElement[] = [];
 
     const mount = () => {
       if (disposed || scene) return;
@@ -52,13 +52,15 @@ export function GlassEnhancer({ children }: Props) {
         scene.addSurface(dock, { material: 'regular', tint: 'var(--lg-pharmacy-tint)', adaptive: true, radius: 0, specular: false });
         scene.addSurface(topEdge, { edge: 'bottom', adaptive: false, radius: 0 });
         scene.addSurface(dockEdge, { edge: 'top', adaptive: false, radius: 0 });
-        surfaces = [topbar, dock, topEdge, dockEdge];
+        edgeElements = [topEdge, dockEdge];
         root.dataset.lgGlass = 'ready';
         scene.invalidate();
         scene.requestFrame();
       } catch {
         scene?.destroy();
         scene = null;
+        edgeElements.forEach((element) => element.remove());
+        edgeElements = [];
         root.dataset.lgGlass = 'fallback';
       }
     };
@@ -74,7 +76,7 @@ export function GlassEnhancer({ children }: Props) {
       disposed = true;
       window.cancelAnimationFrame(frame);
       themeObserver.disconnect();
-      surfaces.forEach((element) => element.remove());
+      edgeElements.forEach((element) => element.remove());
       scene?.destroy();
       delete root.dataset.lgGlass;
     };
