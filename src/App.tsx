@@ -2,6 +2,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import Papa from 'papaparse';
 import {jsPDF} from 'jspdf';
 import {Capacitor} from '@capacitor/core';
+import {App as CapacitorApp} from '@capacitor/app';
 import {Directory,Filesystem} from '@capacitor/filesystem';
 import {Share} from '@capacitor/share';
 import {db,type Product,type Sale,type Movement} from './db';
@@ -123,6 +124,7 @@ export default function App(){
  },[]);
  useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),3200);return()=>clearTimeout(t)},[notice]);
  useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if(e.key==='Escape'){setOpenMenu(null);if(scan)void stopScan();if(stockDialog)setStockDialog(null)}};const onPointer=(e:PointerEvent)=>{if(!(e.target as HTMLElement)?.closest('.nav-item'))setOpenMenu(null)};document.addEventListener('keydown',onKey);document.addEventListener('pointerdown',onPointer);return()=>{document.removeEventListener('keydown',onKey);document.removeEventListener('pointerdown',onPointer)}},[scan,stockDialog]);
+ useEffect(()=>{if(!Capacitor.isNativePlatform())return;let active=true;let backListener:{remove:()=>Promise<void>}|undefined;void CapacitorApp.addListener('backButton',({canGoBack})=>{if(scan){void stopScan();return}if(stockDialog){setStockDialog(null);return}if(openMenu){setOpenMenu(null);return}if(tab!=='Dashboard'){setTab('Dashboard');setQuery('');return}if(!canGoBack)void CapacitorApp.exitApp()}).then(listener=>{if(active)backListener=listener;else void listener.remove()}).catch(()=>{});return()=>{active=false;if(backListener)void backListener.remove()}},[scan,stockDialog,openMenu,tab]);
  const filtered=useMemo(()=>products.filter(p=>[p.name,p.code,p.barcode].some(v=>(v||'').toLowerCase().includes(query.trim().toLowerCase()))),[products,query]);
  const today=localDate(),todaySales=sales.filter(s=>localDate(new Date(s.createdAt))===today),revenue=todaySales.reduce((a,s)=>a+s.total,0),profit=todaySales.reduce((a,s)=>a+s.items.reduce((b,i)=>b+(i.price-i.cost)*i.qty,0),0);
  function add(p:Product){
@@ -339,7 +341,7 @@ export default function App(){
  <div className="brand"><span className="brandmark">N</span><div><b>NAUFAL FARMA</b><small>POINT OF SALE</small></div></div>
  <span className="top-status"><span className="dot"/>{syncState==='syncing'?'Sync…':syncState==='online'?'Cloud aktif':syncState==='error'?'Sync gagal':'Offline lokal'}</span>
 </nav>
- <div className="nav-menu" aria-label="Navigasi utama">
+ <div className="nav-menu" role="navigation" aria-label="Navigasi utama">
   <button className={'nav '+(tab==='Dashboard'?'active':'')} onClick={()=>{setTab('Dashboard');setQuery('');setOpenMenu(null)}}><Home/><span>Dashboard</span></button>
   <button className={'nav '+(tab==='Kasir'?'active':'')} onClick={()=>{setTab('Kasir');setQuery('');setOpenMenu(null)}}><ShoppingCart/><span>Kasir</span></button>
   <div className="nav-item">
