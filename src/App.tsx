@@ -373,8 +373,8 @@ export default function App(){
    <div className="panel-head movement-page-head"><div><span className="eyebrow">PERSEDIAAN APOTEK</span><h3>{tab}</h3></div><span className="section-count">{products.length.toLocaleString('id-ID')} produk</span></div>
    <div className="movement-picker-head"><div><b>Pilih produk</b><small>Cari berdasarkan nama, kode item, atau barcode.</small></div><span className="movement-picker-count">{filtered.length} ditemukan</span></div>
    <div className="search-with-scan"><UiInput className="search" placeholder="Cari nama / kode / barcode…" value={query} onChange={e=>setQuery(e.target.value)}/><UiButton className="soft-btn scan-search-btn" aria-label="Scan barcode produk" onClick={()=>void startScan()}><Camera size={18}/></UiButton></div>
-   <div className="movement-product-list" role="list" aria-label="Daftar produk untuk mutasi">
-    {filtered.map(p=><button type="button" role="listitem" key={p.code} className={'movement-product-option '+(selected?.code===p.code?'selected':'')} onClick={()=>setQuery(p.code)}>
+   <div className="movement-product-list" role="group" aria-label="Daftar produk untuk mutasi">
+    {filtered.map(p=><button type="button" key={p.code} className={'movement-product-option '+(selected?.code===p.code?'selected':'')} onClick={()=>setQuery(p.code)}>
      <span className="movement-product-icon"><Pill size={19}/></span><span className="movement-option-copy"><b>{p.name}</b><small>{p.code}{p.barcode?' · '+p.barcode:''} · {p.category||'Umum'}</small></span><span className="movement-option-stock"><b>{p.stock.toLocaleString('id-ID')}</b><small>{p.unit}</small></span><span className="movement-option-price">{money(p.buyPrice)}</span>
     </button>)}
     {!filtered.length&&<div className="movement-list-empty"><Package size={25}/><b>Produk tidak ditemukan</b><small>Periksa kata kunci atau barcode yang dimasukkan.</small></div>}
