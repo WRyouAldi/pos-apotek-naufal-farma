@@ -4197,3 +4197,24 @@ html[data-theme="dark"] .app-nav { background: rgba(13,31,27,.88); }
 @media (max-width: 900px) and (orientation: landscape) and (prefers-reduced-transparency: reduce) {
   .app-topbar, .app-nav { -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
+
+/* Glass-HQ Liquid Glass integration: GPU glass is restricted to the app chrome. */
+:root { --lg-pharmacy-tint: rgba(22,132,95,.10); }
+html[data-theme="dark"] { --lg-pharmacy-tint: rgba(67,191,145,.13); }
+html[data-lg-glass="ready"] .app-topbar,
+html[data-lg-glass="ready"] .app-nav {
+  background: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+.lg-progressive-edge {
+  position: absolute; z-index: 3; left: 0; right: 0; height: 22px;
+  display: block; pointer-events: none; background: transparent;
+}
+.lg-progressive-edge--topbar { bottom: -1px; }
+.lg-progressive-edge--dock { top: -1px; }
+html[data-lg-glass="ready"] .app-topbar,
+html[data-lg-glass="ready"] .app-nav { isolation: isolate; }
+@media (prefers-reduced-transparency: reduce) { .lg-progressive-edge { display: none !important; } }
+@media (max-width: 720px) and (orientation: portrait) { .lg-progressive-edge { height: 18px; } }
+@media (max-width: 720px) and (orientation: landscape) { .lg-progressive-edge { height: 14px; } }

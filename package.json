@@ -23,7 +23,8 @@
     "@capacitor/android": "^6.2.0",
     "jspdf": "^2.5.2",
     "@capacitor/filesystem": "^6.0.4",
-    "@capacitor/share": "^6.0.3"
+    "@capacitor/share": "^6.0.3",
+    "@glass-sdk/liquid-glass": "0.0.3-beta.4"
   },
   "devDependencies": {
     "@types/papaparse": "^5.3.15",

@@ -21,3 +21,10 @@ Presentation-only migration. Preserve cashier and checkout behavior, pricing, in
 The previous component styling is being consolidated into this single owned stylesheet. The semantic Apple Design tokens and responsive overrides are now the final source of visual decisions; a complete visual rewrite of every historical selector and screenshot-based device QA are still separate verification tasks.
 
 Source guidance: https://github.com/emilkowalski/skills/tree/main/skills/apple-design
+
+## Glass-HQ Liquid Glass
+- The app integrates @glass-sdk/liquid-glass through its vanilla scene API. The React wrapper is intentionally not used because the package React entry requires React 19 while this app remains on React 18.
+- GPU glass is limited to the sticky app header and primary navigation dock. Progressive blur edges are placed at the content-facing edge of each surface.
+- The scene follows the app data-theme light/dark setting. Transaction panels, inputs, prices, tables and dialogs remain opaque/high-contrast.
+- Existing CSS glass remains the fallback when WebGL2/OffscreenCanvas is unavailable or reduced transparency is requested. No cashier, inventory, CSV, barcode, PDF or navigation logic is changed.
+- Android WebView GPU performance and visual output still require device-level validation; a successful web build alone does not establish that audit.
