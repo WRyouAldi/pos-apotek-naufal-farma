@@ -1,14 +1,14 @@
 import {useEffect,useMemo,useState} from 'react';
 import Papa from 'papaparse';
 import {db,type Product,type Sale,type Movement} from './db';
-import {Activity,BarChart3,Boxes,Camera,Home,PackagePlus,Search,Settings,ShoppingCart,Upload,WifiOff} from 'lucide-react';
+import {Activity,ArrowDownToLine,ArrowUpFromLine,BarChart3,Boxes,Camera,ChevronDown,Home,Package,Search,Settings,ShoppingCart,Upload,WifiOff} from 'lucide-react';
 import {Html5Qrcode} from 'html5-qrcode';
 type Tab='Dashboard'|'Kasir'|'Cek Harga'|'Barang'|'Barang Masuk'|'Barang Keluar'|'Laporan'|'Pengaturan';
 const tabs:Tab[]=['Dashboard','Kasir','Cek Harga','Barang','Barang Masuk','Barang Keluar','Laporan','Pengaturan'];
 const money=(n:number)=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n||0);
 const num=(v:unknown)=>Number(String(v??'0').replace(/[^0-9-]/g,''))||0;
 export default function App(){
- const [tab,setTab]=useState<Tab>('Dashboard'),[products,setProducts]=useState<Product[]>([]),[sales,setSales]=useState<Sale[]>([]),[moves,setMoves]=useState<Movement[]>([]),[query,setQuery]=useState(''),[cart,setCart]=useState<{p:Product,qty:number}[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[scan,setScan]=useState(false);
+ const [tab,setTab]=useState<Tab>('Dashboard'),[openMenu,setOpenMenu]=useState<'Produk'|'Persediaan'|null>(null),[products,setProducts]=useState<Product[]>([]),[sales,setSales]=useState<Sale[]>([]),[moves,setMoves]=useState<Movement[]>([]),[query,setQuery]=useState(''),[cart,setCart]=useState<{p:Product,qty:number}[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[scan,setScan]=useState(false);
  async function refresh(){setProducts(await db.products.toArray());setSales(await db.sales.toArray());setMoves(await db.movements.toArray())}
  useEffect(()=>{void refresh()},[]);
  useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),3200);return()=>clearTimeout(t)},[notice]);
@@ -23,7 +23,30 @@ export default function App(){
  async function importCSV(file:File){setBusy(true);Papa.parse<Record<string,string>>(file,{header:true,skipEmptyLines:true,complete:async r=>{try{const list:Product[]=r.data.map(x=>{const get=(...keys:string[])=>{const k=Object.keys(x).find(a=>keys.includes(a.trim().toLowerCase()));return k?x[k]:''};return{code:get('kode item','kode'),barcode:get('kode barcode','barcode'),name:get('nama item','nama'),category:get('jenis','kategori'),brand:get('merek','brand'),stock:num(get('stok')),unit:get('satuan')||'pcs',buyPrice:num(get('harga beli')),sellPrice:num(get('harga jual')),minStock:num(get('stok min')),shelf:get('rak'),supplier:get('supplier')}}).filter(p=>p.code&&p.name);await db.transaction('rw',db.products,async()=>{for(const p of list)await db.products.put(p)});await refresh();setNotice(list.length+' produk diimpor. Stok mengikuti CSV.')}catch(e){setNotice('Impor gagal: '+String(e))}finally{setBusy(false)}}})}
  async function startScan(){setScan(true);setTimeout(async()=>{try{const q=new Html5Qrcode('barcode-reader');await q.start({facingMode:'environment'},{fps:10,qrbox:{width:240,height:120}},v=>{setQuery(v);void q.stop();setScan(false)},()=>{})}catch{setNotice('Kamera tidak tersedia atau izin belum diberikan.')}},150)}
  const exportCSV=()=>{const csv=Papa.unparse(products.map(p=>({'Kode Item':p.code,'Kode Barcode':p.barcode,'Nama Item':p.name,'Jenis':p.category,'Merek':p.brand,'Stok':p.stock,'Satuan':p.unit,'Harga Beli':p.buyPrice,'Harga Jual':p.sellPrice,'Stok Min':p.minStock,'Rak':p.shelf,'Supplier':p.supplier})));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='backup-produk.csv';a.click();URL.revokeObjectURL(a.href)};
- return <div className="app"><nav className="topbar"><div className="brand"><span className="brandmark">N</span><div><b>NAUFAL FARMA</b><small>POINT OF SALE</small></div></div><div className="nav-menu">{tabs.map((t,i)=><button key={t} className={'nav '+(tab===t?'active':'')} onClick={()=>{setTab(t);setQuery('')}}>{[<Home/>,<ShoppingCart/>,<Search/>,<Boxes/>,<PackagePlus/>,<PackagePlus/>,<BarChart3/>,<Settings/>][i]}<span>{t}</span></button>)}</div><span className="top-status"><span className="dot"/>Lokal</span></nav>
+ return <div className="app"><nav className="topbar" aria-label="Navigasi utama">
+ <div className="brand"><span className="brandmark">N</span><div><b>NAUFAL FARMA</b><small>POINT OF SALE</small></div></div>
+ <div className="nav-menu">
+  <button className={'nav '+(tab==='Dashboard'?'active':'')} onClick={()=>{setTab('Dashboard');setQuery('');setOpenMenu(null)}}><Home/><span>Dashboard</span></button>
+  <button className={'nav '+(tab==='Kasir'?'active':'')} onClick={()=>{setTab('Kasir');setQuery('');setOpenMenu(null)}}><ShoppingCart/><span>Kasir</span></button>
+  <div className="nav-item">
+   <button className={'nav '+((tab==='Barang'||tab==='Cek Harga')?'active':'')} aria-haspopup="true" aria-expanded={openMenu==='Produk'} onClick={()=>setOpenMenu(openMenu==='Produk'?null:'Produk')}><Package/><span>Produk</span><ChevronDown className="chevron"/></button>
+   {openMenu==='Produk'&&<div className="nav-submenu" role="group" aria-label="Menu Produk">
+    <button className={tab==='Barang'?'selected':''} onClick={()=>{setTab('Barang');setQuery('');setOpenMenu(null)}}><Boxes size={16}/> Master Barang</button>
+    <button className={tab==='Cek Harga'?'selected':''} onClick={()=>{setTab('Cek Harga');setQuery('');setOpenMenu(null)}}><Search size={16}/> Cek Harga</button>
+   </div>}
+  </div>
+  <div className="nav-item">
+   <button className={'nav '+((tab==='Barang Masuk'||tab==='Barang Keluar')?'active':'')} aria-haspopup="true" aria-expanded={openMenu==='Persediaan'} onClick={()=>setOpenMenu(openMenu==='Persediaan'?null:'Persediaan')}><Boxes/><span>Persediaan</span><ChevronDown className="chevron"/></button>
+   {openMenu==='Persediaan'&&<div className="nav-submenu" role="group" aria-label="Menu Persediaan">
+    <button className={tab==='Barang Masuk'?'selected':''} onClick={()=>{setTab('Barang Masuk');setQuery('');setOpenMenu(null)}}><ArrowDownToLine size={16}/> Barang Masuk</button>
+    <button className={tab==='Barang Keluar'?'selected':''} onClick={()=>{setTab('Barang Keluar');setQuery('');setOpenMenu(null)}}><ArrowUpFromLine size={16}/> Barang Keluar</button>
+   </div>}
+  </div>
+  <button className={'nav '+(tab==='Laporan'?'active':'')} onClick={()=>{setTab('Laporan');setQuery('');setOpenMenu(null)}}><BarChart3/><span>Laporan</span></button>
+  <button className={'nav '+(tab==='Pengaturan'?'active':'')} onClick={()=>{setTab('Pengaturan');setQuery('');setOpenMenu(null)}}><Settings/><span>Pengaturan</span></button>
+ </div>
+ <span className="top-status"><span className="dot"/>Lokal</span>
+</nav>
  <main className="main"><header><div><span className="eyebrow">APOTEK NAUFAL FARMA</span><h1>{tab}</h1></div><span className="online"><WifiOff size={15}/> Offline-ready</span></header>{notice&&<div className="toast">{notice}</div>}
  {tab==='Dashboard'&&<><section className="welcome"><div><span className="eyebrow">SELAMAT DATANG</span><h2>Operasional apotek,<br/>lebih praktis.</h2><p>Ringkasan aktivitas POS Apotek Naufal Farma.</p></div><Activity size={62}/></section><div className="stats">{[['Total Produk',products.length],['Penjualan Hari Ini',money(revenue)],['Estimasi Laba',money(profit)],['Stok Menipis',products.filter(p=>p.stock<=p.minStock).length]].map(([a,b])=><div className="stat" key={String(a)}><span>{a}</span><strong>{b}</strong></div>)}</div><section className="panel"><h3>Produk perlu perhatian</h3>{products.filter(p=>p.stock<=p.minStock).slice(0,12).map(p=><p className="row" key={p.code}>{p.name} <b>{p.stock} {p.unit}</b></p>)}</section></>}
  {tab==='Kasir'&&<div className="grid-two"><section className="panel"><div className="panel-head"><h3>Pilih produk</h3><button className="soft-btn" onClick={()=>void startScan()}><Camera size={16}/> Scan</button></div><input className="search" placeholder="Cari nama, kode, barcode..." value={query} onChange={e=>setQuery(e.target.value)}/>{filtered.map(p=><button className="product-pick" key={p.code} onClick={()=>add(p)}><span>{p.name}<small>{p.code} · Stok {p.stock}</small></span><b>{money(p.sellPrice)}</b></button>)}</section><section className="panel"><h3>Keranjang ({cart.length})</h3>{cart.map(x=><div className="row" key={x.p.code}><span>{x.p.name} × {x.qty}</span><b>{money(x.qty*x.p.sellPrice)}</b><button onClick={()=>setCart(c=>c.filter(y=>y.p.code!==x.p.code))}>×</button></div>)}<h2>{money(cart.reduce((a,x)=>a+x.qty*x.p.sellPrice,0))}</h2><button className="primary full" disabled={!cart.length} onClick={()=>void checkout()}>Selesaikan transaksi</button></section></div>}
