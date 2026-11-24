@@ -1,24 +1,54 @@
 /* Naufal Farma — standalone Clinical Minimal Pro design system
    One stylesheet, semantic component classes, no legacy stylesheet dependency. */
 :root {
+
   color-scheme: light;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none; text-rendering: optimizeLegibility; font-kerning: normal;
-  --ad-bg:#edf4ef; --ad-bg-glow:#dcebe2; --ad-surface:rgba(255,255,255,.82); --ad-surface-solid:#fff;
-  --ad-surface-raised:#f7fbf8; --ad-text:#18382d; --ad-muted:#70877b; --ad-brand:#16845f;
-  --ad-brand-strong:#0d694a; --ad-brand-soft:#dff2e7; --ad-border:rgba(77,124,96,.17);
-  --ad-shadow-1:0 5px 16px rgba(20,65,43,.06); --ad-shadow-2:0 14px 34px rgba(20,65,43,.08);
-  --ad-shadow-float:0 24px 65px rgba(12,43,29,.20); --ad-radius-card:25px; --ad-radius-control:15px;
-  --ad-radius-pill:999px; --ad-blur:26px; --ad-ease:cubic-bezier(.2,.75,.25,1);
-  --ad-fast:140ms; --ad-normal:220ms; --ad-safe-bottom:env(safe-area-inset-bottom,0px);
-  --lg-pharmacy-tint:rgba(22,132,95,.10);
+  --ad-bg: #f3f5f0;
+  --ad-surface-raised: #eaf1eb;
+  --ad-brand-strong: #08634e;
+  --ad-shadow-1: 0 5px 18px rgba(26,65,49,.055);
+  --ad-shadow-float: 0 24px 65px rgba(16,48,36,.18);
+  --ad-radius-pill: 999px;
+  --ad-fast: 140ms;
+  --lg-pharmacy-tint: rgba(22,132,95,.10);
+
+  --ad-bg-glow: #e3eee7;
+  --ad-surface: rgba(255,255,251,.96);
+  --ad-surface-solid: #fffefb;
+  --ad-text: #18352f;
+  --ad-muted: #667d74;
+  --ad-brand: #087b5e;
+  --ad-brand-soft: #dcefe5;
+  --ad-border: rgba(34,83,66,.14);
+  --ad-shadow-2: 0 15px 36px rgba(26,65,49,.09);
+  --ad-radius-card: 22px;
+  --ad-radius-control: 14px;
+  --ad-blur: 26px;
+  --ad-ease: cubic-bezier(.2,.75,.25,1);
+  --ad-normal: 220ms;
+  --ad-safe-bottom: env(safe-area-inset-bottom,0px);
 }
 html[data-theme="dark"] {
+
   color-scheme:dark; --lg-pharmacy-tint:rgba(67,191,145,.13); --ad-bg:#0b1714; --ad-bg-glow:#102a21; --ad-surface:rgba(23,43,35,.88);
-  --ad-surface-solid:#172b23; --ad-surface-raised:#20392e; --ad-text:#e5f3e9; --ad-muted:#9bb3a5;
-  --ad-brand:#69d3a2; --ad-brand-strong:#8be0b7; --ad-brand-soft:rgba(78,180,126,.17);
-  --ad-border:rgba(190,225,202,.14); --ad-shadow-1:0 5px 18px rgba(0,0,0,.16);
-  --ad-shadow-2:0 14px 36px rgba(0,0,0,.22); --ad-shadow-float:0 24px 65px rgba(0,0,0,.42);
+  --ad-surface-solid: #172b23;
+  --ad-brand: #69d3a2;
+  --ad-border: rgba(190,225,202,.14);
+  --ad-shadow-2: 0 14px 36px rgba(0,0,0,.22);
+
+  --lg-pharmacy-tint: rgba(67,191,145,.13);
+  --ad-bg: #0b1714;
+  --ad-bg-glow: #102a21;
+  --ad-surface: rgba(23,43,35,.88);
+  --ad-surface-raised: #20392e;
+  --ad-text: #e5f3e9;
+  --ad-muted: #9bb3a5;
+  --ad-brand-strong: #8be0b7;
+  --ad-brand-soft: rgba(78,180,126,.17);
+  --ad-shadow-1: 0 5px 18px rgba(0,0,0,.16);
+  --ad-shadow-float: 0 24px 65px rgba(0,0,0,.42);
 }
 * { box-sizing:border-box; }
 html { min-width:320px; min-height:100%; background:var(--ad-bg); scroll-behavior:smooth; }
@@ -52,7 +82,7 @@ svg { flex:none; }
 .nf-screen-context { display:block; margin-bottom:7px; color:var(--ad-muted); font-size:12px; font-weight:600; letter-spacing:.015em; }
 .nf-screen-header h1 { margin:0; color:var(--ad-text); font-size:clamp(27px,3vw,38px); font-weight:800; letter-spacing:-.055em; line-height:1.08; }
 .nf-online { display:inline-flex; align-items:center; gap:8px; flex:none; padding:10px 14px; border:1px solid var(--ad-border); border-radius:var(--ad-radius-pill); color:var(--ad-brand-strong); background:var(--ad-surface); box-shadow:var(--ad-shadow-1); font-size:11px; font-weight:750; }
-html[data-theme="dark"] .nf-online { color:var(--ad-brand-strong); }
+
 .nf-panel,.nf-stat,.nf-sales-report-card,.nf-movement-history-card,.nf-visual-stock-card,.nf-sync-status-card { min-width:0; border:1px solid var(--ad-border); border-radius:var(--ad-radius-card); background:var(--ad-surface); box-shadow:var(--ad-shadow-1); }
 .nf-panel { margin:0 0 18px; padding:clamp(16px,2.2vw,24px); }
 .nf-panel h3 { display:flex; align-items:center; gap:9px; margin:0; color:var(--ad-text); font-size:16px; font-weight:780; letter-spacing:-.025em; }
@@ -335,7 +365,7 @@ html[data-lg-glass="ready"] .nf-app-topbar,html[data-lg-glass="ready"] .nf-app-n
 
 
 /* Clinical Minimal Pro — unified visual layer for every operational screen. */
-:root{--ad-bg:#f3f5f0;--ad-bg-glow:#e3eee7;--ad-surface:rgba(255,255,251,.96);--ad-surface-solid:#fffefb;--ad-surface-raised:#eaf1eb;--ad-text:#18352f;--ad-muted:#667d74;--ad-brand:#087b5e;--ad-brand-strong:#08634e;--ad-brand-soft:#dcefe5;--ad-border:rgba(34,83,66,.14);--ad-shadow-1:0 5px 18px rgba(26,65,49,.055);--ad-shadow-2:0 15px 36px rgba(26,65,49,.09);--ad-shadow-float:0 24px 65px rgba(16,48,36,.18);--ad-radius-card:22px;--ad-radius-control:14px}
+
 html[data-theme="dark"]{--ad-bg:#17232b;--ad-bg-glow:#20353a;--ad-surface:rgba(35,51,58,.97);--ad-surface-solid:#263840;--ad-surface-raised:#30464b;--ad-text:#eff6f1;--ad-muted:#a8bbb4;--ad-brand:#79d9b5;--ad-brand-strong:#9ce8ca;--ad-brand-soft:rgba(110,211,173,.15);--ad-border:rgba(202,230,218,.14);--ad-shadow-1:0 6px 20px rgba(0,0,0,.17);--ad-shadow-2:0 16px 38px rgba(0,0,0,.25);--ad-shadow-float:0 24px 65px rgba(0,0,0,.42)}
 body{background:radial-gradient(ellipse at 8% 0%,var(--ad-bg-glow),transparent 38%),var(--ad-bg)}
 .nf-app:before{background:radial-gradient(ellipse at 88% 8%,color-mix(in srgb,var(--ad-brand) 8%,transparent),transparent 38%)}
@@ -495,4 +525,4 @@ html[data-theme="dark"] .nf-stock-low{color:#f5d18b;background:rgba(227,174,82,.
  .nf-editorial-art{min-height:100px}
  .nf-master-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
-@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
