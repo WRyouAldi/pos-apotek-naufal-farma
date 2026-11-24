@@ -533,3 +533,26 @@ html[data-theme="dark"] .nf-stock-low{color:#f5d18b;background:rgba(227,174,82,.
 .nf-dashboard-poster-art>img{display:block;width:min(100%,420px);height:100%;min-height:200px;max-height:310px;object-fit:contain;filter:drop-shadow(0 12px 18px rgba(30,92,62,.10))}
 html[data-theme="dark"] .nf-dashboard-poster-art>img{filter:drop-shadow(0 12px 18px rgba(0,0,0,.24))}
 @media(max-width:620px){.nf-dashboard-poster-art>img{max-height:210px}}
+
+/* Visual enrichment — pharmacy illustration system */
+.nf-app-main{position:relative;isolation:isolate}
+.nf-app-main:before{content:"";position:absolute;z-index:-1;pointer-events:none;top:8px;right:clamp(8px,3vw,44px);width:min(34vw,360px);height:260px;border-radius:48%;background:radial-gradient(ellipse at 58% 35%,color-mix(in srgb,var(--ad-brand) 10%,transparent),transparent 68%);filter:blur(12px)}
+.nf-dashboard-intro{position:relative;isolation:isolate;background-image:radial-gradient(circle at 82% 20%,rgba(255,255,255,.72),transparent 30%),linear-gradient(135deg,rgba(226,242,229,.96),rgba(244,249,239,.82))}
+.nf-dashboard-intro:before,.nf-dashboard-intro:after{content:"";position:absolute;z-index:-1;pointer-events:none;border:1px solid color-mix(in srgb,var(--ad-brand) 16%,transparent);border-radius:50%}
+.nf-dashboard-intro:before{width:210px;height:210px;right:8%;top:-132px;box-shadow:0 0 0 18px color-mix(in srgb,var(--ad-brand) 3%,transparent),0 0 0 38px color-mix(in srgb,var(--ad-brand) 2%,transparent)}
+.nf-dashboard-intro:after{width:86px;height:86px;right:34%;bottom:-58px;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.7),transparent 68%)}
+html[data-theme="dark"] .nf-dashboard-intro{background-image:radial-gradient(circle at 82% 20%,rgba(174,244,207,.12),transparent 34%),linear-gradient(135deg,rgba(37,79,57,.96),rgba(24,51,39,.92))}
+.nf-dashboard-poster-art img{position:relative;z-index:1;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 16px 20px rgba(14,83,58,.12));transform:scale(1.04);transition:transform 650ms cubic-bezier(.2,.75,.25,1),filter 650ms ease}
+.nf-dashboard-intro:hover .nf-dashboard-poster-art img{transform:scale(1.085) translateY(-3px);filter:drop-shadow(0 22px 24px rgba(14,83,58,.18))}
+.nf-stat{isolation:isolate}
+.nf-stat:before{content:"";position:absolute;z-index:-1;right:12px;top:12px;width:52px;height:52px;border-radius:18px;background:radial-gradient(circle,color-mix(in srgb,var(--ad-brand) 11%,transparent),transparent 70%);pointer-events:none}
+.nf-product-card-icon img,.nf-master-product-icon img,.nf-movement-product-icon img{display:block;width:100%;height:100%;padding:2px;object-fit:contain;border-radius:inherit}
+.nf-product-card-icon,.nf-master-product-icon,.nf-movement-product-icon{overflow:hidden}
+.nf-empty-illustration{display:block;width:min(190px,68%);height:auto;max-height:130px;object-fit:contain;margin:0 auto 4px;filter:drop-shadow(0 10px 16px rgba(16,82,57,.08))}
+.nf-visual-empty,.nf-sales-report-empty,.nf-movement-list-empty{position:relative;overflow:hidden;border:1px dashed color-mix(in srgb,var(--ad-brand) 18%,var(--ad-border));border-radius:18px;background:radial-gradient(ellipse at 50% 15%,color-mix(in srgb,var(--ad-brand) 6%,transparent),transparent 70%)}
+.nf-visual-empty .nf-empty-illustration,.nf-sales-report-empty .nf-empty-illustration,.nf-movement-list-empty .nf-empty-illustration{width:min(180px,62%);max-height:118px}
+.nf-product-pick,.nf-master-card,.nf-movement-product-option{transition:transform 180ms var(--ad-ease),box-shadow 220ms var(--ad-ease),border-color 220ms var(--ad-ease)}
+.nf-product-pick:hover,.nf-master-card:hover,.nf-movement-product-option:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--ad-brand) 32%,var(--ad-border));box-shadow:var(--ad-shadow-2)}
+html[data-theme="dark"] .nf-empty-illustration{filter:drop-shadow(0 10px 18px rgba(0,0,0,.2))}
+@media(max-width:720px){.nf-app-main:before{top:0;right:-50px;width:220px;height:180px}.nf-dashboard-intro:before{right:-70px}.nf-dashboard-intro:after{right:12%}.nf-dashboard-poster-art img{transform:scale(1.02)}.nf-dashboard-intro:hover .nf-dashboard-poster-art img{transform:scale(1.04)}}
+@media(prefers-reduced-motion:reduce){.nf-dashboard-poster-art img,.nf-product-pick,.nf-master-card,.nf-movement-product-option{transition:none!important}.nf-dashboard-intro:hover .nf-dashboard-poster-art img{transform:none}}
