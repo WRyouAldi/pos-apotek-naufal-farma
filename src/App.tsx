@@ -12,7 +12,7 @@ import {Html5Qrcode} from 'html5-qrcode';
 import {UiButton,UiInput,UiModal} from './ui';
 type Tab='Dashboard'|'Kasir'|'Cek Harga'|'Barang'|'Barang Masuk'|'Barang Keluar'|'Laporan'|'Pengaturan';
 import {parseMasterCSV,productsFromCSV} from './app/shared/data/master-csv';
-import {readProductOverrides,writeProductOverrides,readDeletedProductCodes,writeDeletedProductCodes} from './app/shared/data/product-sync-preferences';
+import {readProductOverrides,writeProductOverrides,readDeletedProductCodes,writeDeletedProductCodes,clearProductSyncPreferences} from './app/shared/data/product-sync-preferences';
 import {localDate,money,num} from './app/shared/format/formatters';
 import {recordSale} from './app/features/cashier/use-cases/record-sale';
 import {recordInventoryMovement} from './app/features/inventory/use-cases/record-movement';
@@ -119,6 +119,7 @@ export default function App(){
    const ms:Movement[]=raw.data.movements.map((v:any)=>{if(typeof v.createdAt!=='string'||!['MASUK','KELUAR','PENJUALAN'].includes(v.type)||typeof v.code!=='string'||!Number.isSafeInteger(v.qty)||!Number.isFinite(v.unitCost))throw new Error('Data mutasi tidak valid.');return v});
    const codes=new Set<string>();for(const p of ps){if(codes.has(p.code))throw new Error('Kode produk duplikat: '+p.code);codes.add(p.code)}
    await db.transaction('rw',db.products,db.sales,db.movements,async()=>{await db.products.clear();await db.sales.clear();await db.movements.clear();await db.products.bulkAdd(ps);await db.sales.bulkAdd(ss);await db.movements.bulkAdd(ms)});
+   clearProductSyncPreferences();
    await refresh();setCart([]);setNotice('Pemulihan selesai: '+ps.length+' produk, '+ss.length+' transaksi, '+ms.length+' mutasi.');
   }catch(e){setNotice('Pemulihan dibatalkan: '+(e instanceof Error?e.message:String(e)))}
   finally{setBusy(false)}
