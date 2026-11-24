@@ -2,115 +2,39 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import Papa from 'papaparse';
 import {jsPDF} from 'jspdf';
 import {Capacitor} from '@capacitor/core';
+import {App as CapacitorApp} from '@capacitor/app';
 import {Directory,Filesystem} from '@capacitor/filesystem';
 import {Share} from '@capacitor/share';
 import {db,type Product,type Sale,type Movement} from './db';
-import {Activity,ArrowDownToLine,ArrowUpFromLine,BarChart3,Boxes,Camera,ChevronDown,Home,Package,Search,Settings,ShoppingCart,ShoppingBag,Upload,WifiOff,Download,FileUp,Sparkles,Pill,TrendingUp,AlertTriangle,PackageCheck,ScanLine,ClipboardList,ShieldCheck,Cloud,RefreshCw,Sun,Moon} from 'lucide-react';
+import {buildInventoryMovementPDF} from './reports/inventory-pdf';
+import {Activity,ArrowDownToLine,ArrowUpFromLine,BarChart3,Boxes,Camera,ChevronDown,Home,Package,Search,Settings,ShoppingCart,ShoppingBag,Upload,WifiOff,Download,FileUp,Sparkles,Pill,TrendingUp,AlertTriangle,PackageCheck,ScanLine,ClipboardList,ShieldCheck,Cloud,RefreshCw,Sun,Moon,Wallet,Plus,Pencil,Trash2} from 'lucide-react';
 import {Html5Qrcode} from 'html5-qrcode';
 import {UiButton,UiInput,UiModal} from './ui';
 type Tab='Dashboard'|'Kasir'|'Cek Harga'|'Barang'|'Barang Masuk'|'Barang Keluar'|'Laporan'|'Pengaturan';
-const localDate=(d=new Date())=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+day};
-const money=(n:number)=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n||0);
-const num=(v:unknown)=>Number(String(v??'0').replace(/[^0-9-]/g,''))||0;
-function parseMasterCSV(raw:string){
- const lines=raw.replace(/^\uFEFF/,'').split(/\r\n|\n|\r/);
- const headerAt=lines.findIndex(line=>/kode\s*item/i.test(line)&&/nama\s*item/i.test(line));
- if(headerAt<0)throw new Error('Header CSV tidak ditemukan. Pastikan ada kolom Kode Item dan Nama Item.');
- const headerLine=lines[headerAt];
- const delimiter=headerLine.includes(';')?';':headerLine.includes('\t')?'\t':',';
- const normalized=[headerLine];let repaired=0;
- for(const line of lines.slice(headerAt+1)){
-  if(!line.trim())continue;
-  const fields=Papa.parse<string[]>(line,{header:false,delimiter,skipEmptyLines:false}).data[0]??[];
-  if(fields.length===25){
-   normalized.push(Papa.unparse([fields.slice(0,12).concat(''),fields.slice(12)],{delimiter}));
-   repaired++;
-  }else normalized.push(line);
- }
- const parsed=Papa.parse<Record<string,string>>(normalized.join('\n'),{
-  header:true,delimiter,skipEmptyLines:'greedy',
-  transformHeader:h=>h.replace(/^\uFEFF/,'').trim().toLowerCase()
- });
- if(parsed.errors.length)throw new Error('Format CSV tidak valid pada baris '+(headerAt+1+parsed.errors[0].row)+'. Periksa pemisah dan tanda kutip.');
- const headers=Object.keys(parsed.data[0]??{});
- const required=['kode item','nama item','stok','harga beli','harga jual'];
- for(const key of required)if(!headers.includes(key))throw new Error('Kolom wajib tidak ditemukan: '+key+'.');
- return {data:parsed.data,headerAt,repaired};
-}
-function csvInteger(value:string,label:string,line:number){
- const raw=value.trim().replace(/^rp\s*/i,'').replace(/\s/g,'');
- if(!raw)throw new Error(label+' kosong pada baris '+line+'.');
- if(!/^-?\d+$|^-?\d{1,3}(?:\.\d{3})+$/.test(raw))throw new Error(label+' memiliki format angka tidak valid pada baris '+line+': '+value);
- const result=Number(raw.replace(/\./g,''));
- if(!Number.isSafeInteger(result))throw new Error(label+' di luar batas angka aman pada baris '+line+'.');
- return result;
-}
-function productsFromCSV(parsed:ReturnType<typeof parseMasterCSV>){
- const seen=new Set<string>(),list:Product[]=[];let skipped=0;
- for(let i=0;i<parsed.data.length;i++){
-  const row=parsed.data[i];
-  const get=(...keys:string[])=>{const k=Object.keys(row).find(x=>keys.includes(x));return k?String(row[k]??'').trim():''};
-  const code=get('kode item','kode'),name=get('nama item','nama');
-  if(!code&&!name){skipped++;continue}
-  if(code==='.'&&name==='.') {skipped++;continue}
-  if(/^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}$/.test(code)&&get('kode barcode')==='ADMIN'&&!name){skipped++;continue}
-  const line=parsed.headerAt+i+2;
-  if(!code||!name)throw new Error('Baris '+line+': kode dan nama produk wajib diisi.');
-  if(seen.has(code))throw new Error('Kode produk duplikat: '+code+' (baris '+line+').');
-  seen.add(code);
-  const stock=csvInteger(get('stok'),'Stok',line);
-  const buyPrice=csvInteger(get('harga beli'),'Harga Beli',line);
-  const sellPrice=csvInteger(get('harga jual'),'Harga Jual',line);
-  const minStock=get('stok min')?csvInteger(get('stok min'),'Stok Minimum',line):0;
-  if(buyPrice<0||sellPrice<0||minStock<0)throw new Error('Harga dan stok minimum tidak boleh negatif (baris '+line+').');
-  list.push({code,barcode:get('kode barcode','barcode'),name,category:get('jenis','kategori'),brand:get('merek','brand'),stock,unit:get('satuan')||'pcs',buyPrice,sellPrice,minStock,shelf:get('rak'),supplier:get('supplier')});
- }
- if(!list.length)throw new Error('Tidak ada produk valid untuk diproses.');
- return {list,skipped};
-}
-
+import {parseMasterCSV,productsFromCSV} from './app/shared/data/master-csv';
+import {readProductOverrides,writeProductOverrides,readDeletedProductCodes,writeDeletedProductCodes,clearProductSyncPreferences} from './app/shared/data/product-sync-preferences';
+import {localDate,money,num} from './app/shared/format/formatters';
+import {recordSale} from './app/features/cashier/use-cases/record-sale';
+import {recordInventoryMovement} from './app/features/inventory/use-cases/record-movement';
+import {saveCatalogProduct,removeCatalogProduct,importCatalogProducts} from './app/features/catalog/use-cases/manage-catalog';
+import {BarcodeScanner} from './app/features/scanner/infrastructure/barcode-scanner';
+import {filterSalesByRange,filterMovementsByRange,summarizeInventoryMovements} from './app/features/reports/domain/report-selectors';
+import {fetchMasterCatalogCSV,syncMasterCatalogCSV} from './app/features/synchronization/use-cases/sync-master-catalog';
 export default function App(){
- const [theme,setTheme]=useState<'light'|'dark'>(()=>{try{return localStorage.getItem('naufal-farma:theme')==='dark'?'dark':'light'}catch{return 'light'}}),[tab,setTab]=useState<Tab>('Dashboard'),[reportFrom,setReportFrom]=useState(''),[reportTo,setReportTo]=useState(''),[pdfBusy,setPdfBusy]=useState(false),[openMenu,setOpenMenu]=useState<'Produk'|'Persediaan'|null>(null),[products,setProducts]=useState<Product[]>([]),[sales,setSales]=useState<Sale[]>([]),[moves,setMoves]=useState<Movement[]>([]),[query,setQuery]=useState(''),[cart,setCart]=useState<{p:Product,qty:number}[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[scan,setScan]=useState(false),[stockDialog,setStockDialog]=useState<'MASUK'|'KELUAR'|null>(null),[stockQty,setStockQty]=useState(''),[syncing,setSyncing]=useState(false),[syncState,setSyncState]=useState<'online'|'offline'|'syncing'|'error'>('offline'),[lastSync,setLastSync]=useState(()=>{try{return localStorage.getItem('naufal-farma:last-csv-sync')||''}catch{return ''}}); const syncLock=useRef(false); const scannerRef=useRef<Html5Qrcode|null>(null),scanTimerRef=useRef<number|undefined>(undefined);
- useEffect(()=>{document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;const meta=document.querySelector('meta[name="theme-color"]');meta?.setAttribute('content',theme==='dark'?'#071b19':'#f1f0ee');try{localStorage.setItem('naufal-farma:theme',theme)}catch{}},[theme]);
- async function refresh(){setProducts(await db.products.toArray());setSales(await db.sales.toArray());setMoves(await db.movements.toArray())}
+ const [theme,setTheme]=useState<'light'|'dark'>(()=>{try{return localStorage.getItem('naufal-farma:theme')==='dark'?'dark':'light'}catch{return 'light'}}),[tab,setTab]=useState<Tab>('Dashboard'),[reportFrom,setReportFrom]=useState(''),[reportTo,setReportTo]=useState(''),[pdfBusy,setPdfBusy]=useState(false),[openMenu,setOpenMenu]=useState<'Produk'|'Persediaan'|null>(null),[products,setProducts]=useState<Product[]>([]),[productDialog,setProductDialog]=useState(false),[editingProduct,setEditingProduct]=useState<Product|null>(null),[productForm,setProductForm]=useState({code:'',barcode:'',name:'',category:'',brand:'',stock:'0',unit:'pcs',buyPrice:'0',sellPrice:'0',minStock:'0',shelf:'',supplier:''}),[sales,setSales]=useState<Sale[]>([]),[moves,setMoves]=useState<Movement[]>([]),[query,setQuery]=useState(''),[cart,setCart]=useState<{p:Product,qty:number}[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[scan,setScan]=useState(false),[stockDialog,setStockDialog]=useState<'MASUK'|'KELUAR'|null>(null),[stockQty,setStockQty]=useState(''),[syncing,setSyncing]=useState(false),[syncState,setSyncState]=useState<'online'|'offline'|'syncing'|'error'>('offline'),[lastSync,setLastSync]=useState(()=>{try{return localStorage.getItem('naufal-farma:last-csv-sync')||''}catch{return ''}}); const syncLock=useRef(false); const scannerRef=useRef<BarcodeScanner|null>(null),scanTimerRef=useRef<number|undefined>(undefined);
+ useEffect(()=>{document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;const meta=document.querySelector('meta[name="theme-color"]');meta?.setAttribute('content',theme==='dark'?'#17232b':'#f3f5f0');try{localStorage.setItem('naufal-farma:theme',theme)}catch{}},[theme]);
+ async function refresh(){const nextProducts=await db.products.toArray();setProducts(nextProducts);setCart(current=>current.map(item=>{const latest=nextProducts.find(product=>product.code===item.p.code);return latest?{...item,p:latest}:item}));setSales(await db.sales.toArray());setMoves(await db.movements.toArray())}
 
  async function syncCloudCSV(showFeedback=false){
-  if(syncLock.current)return;
-  if(!navigator.onLine){setSyncState('offline');return}
+  if(syncLock.current)return;if(!navigator.onLine){setSyncState('offline');return}
   syncLock.current=true;setSyncing(true);setSyncState('syncing');
   try{
-   let raw='';
-   const controller=new AbortController(),timeout=window.setTimeout(()=>controller.abort(),20000);
-   try{
-    const url='https://raw.githubusercontent.com/WRyouAldi/pos-apotek-naufal-farma/main/public/data/xReport2.csv?sync='+Date.now();
-    const response=await fetch(url,{cache:'no-store',signal:controller.signal});
-    if(!response.ok)throw new Error('GitHub raw merespons '+response.status);
-    raw=await response.text();
-   }catch(rawError){
-    const response=await fetch('https://api.github.com/repos/WRyouAldi/pos-apotek-naufal-farma/contents/public/data/xReport2.csv?ref=main',{cache:'no-store',headers:{Accept:'application/vnd.github+json'}});
-    if(!response.ok)throw new Error('GitHub tidak dapat diakses ('+response.status+'). '+(rawError instanceof Error?rawError.message:''));
-    const payload=await response.json() as {content?:string;encoding?:string};
-    if(!payload.content||payload.encoding!=='base64')throw new Error('Isi CSV GitHub tidak dapat dibaca.');
-    const binary=atob(payload.content.replace(/\s/g,''));
-    raw=new TextDecoder().decode(Uint8Array.from(binary,ch=>ch.charCodeAt(0)));
-   }finally{window.clearTimeout(timeout)}
-   const parsed=parseMasterCSV(raw);
-   const {list:incoming,skipped}=productsFromCSV(parsed);
-   if(incoming.length<100)throw new Error('CSV GitHub tidak lengkap: hanya '+incoming.length+' produk valid. Data lokal tidak diubah.');
-   const existing=await db.products.toArray(),byCode=new Map(existing.map(p=>[p.code,p]));
-   await db.transaction('rw',db.products,async()=>{
-    for(const item of incoming){
-     const old=byCode.get(item.code);
-     if(old&&old.id)await db.products.update(old.id,{...item,stock:old.stock,barcode:item.barcode||old.barcode});
-     else await db.products.add(item);
-    }
-   });
+   const raw=await fetchMasterCatalogCSV();
+   const result=await syncMasterCatalogCSV(raw);
    await refresh();const syncedAt=new Date().toISOString();setLastSync(syncedAt);try{localStorage.setItem('naufal-farma:last-csv-sync',syncedAt)}catch{}setSyncState('online');
-   if(showFeedback)setNotice('Sinkronisasi GitHub berhasil: '+incoming.length+' produk diperiksa.'+(parsed.repaired?' · '+parsed.repaired+' baris CSV dirapikan.':'')+(skipped?' · '+skipped+' baris non-produk dilewati.':''));
-  }catch(e){
-   setSyncState(navigator.onLine?'error':'offline');
-   if(showFeedback)setNotice('Sync GitHub gagal. Data lokal tetap digunakan: '+(e instanceof Error?e.message:String(e)));
-  }finally{syncLock.current=false;setSyncing(false)}
+   if(showFeedback)setNotice('Sinkronisasi GitHub berhasil: '+result.count+' produk diperiksa.'+(result.repaired?', '+result.repaired+' baris CSV dirapikan.':'')+(result.skipped?', '+result.skipped+' baris non-produk dilewati.':''));
+  }catch(e){setSyncState(navigator.onLine?'error':'offline');if(showFeedback)setNotice('Sync GitHub gagal. Data lokal tetap digunakan: '+(e instanceof Error?e.message:String(e)))}
+  finally{syncLock.current=false;setSyncing(false)}
  }
  useEffect(()=>{
   void (async()=>{await refresh();await syncCloudCSV()})();
@@ -121,118 +45,63 @@ export default function App(){
   return()=>{window.clearInterval(timer);window.removeEventListener('online',online);document.removeEventListener('visibilitychange',visible)};
  },[]);
  useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),3200);return()=>clearTimeout(t)},[notice]);
- useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if(e.key==='Escape'){setOpenMenu(null);if(scan)void stopScan();if(stockDialog)setStockDialog(null)}};const onPointer=(e:PointerEvent)=>{if(!(e.target as HTMLElement)?.closest('.nav-item'))setOpenMenu(null)};document.addEventListener('keydown',onKey);document.addEventListener('pointerdown',onPointer);return()=>{document.removeEventListener('keydown',onKey);document.removeEventListener('pointerdown',onPointer)}},[scan,stockDialog]);
+ useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if(e.key==='Escape'){setOpenMenu(null);if(scan)void stopScan();if(stockDialog)setStockDialog(null)}};const onPointer=(e:PointerEvent)=>{if(!(e.target as HTMLElement)?.closest('.nf-nav-item'))setOpenMenu(null)};document.addEventListener('keydown',onKey);document.addEventListener('pointerdown',onPointer);return()=>{document.removeEventListener('keydown',onKey);document.removeEventListener('pointerdown',onPointer)}},[scan,stockDialog]);
+ useEffect(()=>{if(!Capacitor.isNativePlatform())return;let active=true;let backListener:{remove:()=>Promise<void>}|undefined;let stateListener:{remove:()=>Promise<void>}|undefined;void CapacitorApp.addListener('backButton',({canGoBack})=>{if(scan){void stopScan();return}if(stockDialog){setStockDialog(null);return}if(openMenu){setOpenMenu(null);return}if(tab!=='Dashboard'){setTab('Dashboard');setQuery('');return}if(!canGoBack)void CapacitorApp.exitApp()}).then(listener=>{if(active)backListener=listener;else void listener.remove()}).catch(()=>{});void CapacitorApp.addListener('appStateChange',({isActive})=>{if(!isActive&&scan)void stopScan()}).then(listener=>{if(active)stateListener=listener;else void listener.remove()}).catch(()=>{});return()=>{active=false;if(backListener)void backListener.remove();if(stateListener)void stateListener.remove()}},[scan,stockDialog,openMenu,tab]);
  const filtered=useMemo(()=>products.filter(p=>[p.name,p.code,p.barcode].some(v=>(v||'').toLowerCase().includes(query.trim().toLowerCase()))),[products,query]);
+ function categoryAsset(category:string){const value=(category||'').toLowerCase();if(/tablet|pil/.test(value))return '/assets/category-tablets.svg';if(/kapsul|capsul/.test(value))return '/assets/category-capsules.svg';if(/sirup|syrup|cair/.test(value))return '/assets/category-syrup.svg';if(/vitamin|suplemen/.test(value))return '/assets/category-vitamins.svg';if(/alat kesehatan|alkes|medical|termometer|tensimeter/.test(value))return '/assets/category-medical-device.svg';if(/p3k|pertolongan|first aid|perban|antiseptik/.test(value))return '/assets/category-first-aid.svg';return ''}
  const today=localDate(),todaySales=sales.filter(s=>localDate(new Date(s.createdAt))===today),revenue=todaySales.reduce((a,s)=>a+s.total,0),profit=todaySales.reduce((a,s)=>a+s.items.reduce((b,i)=>b+(i.price-i.cost)*i.qty,0),0);
  function add(p:Product){
-  if(p.stock<1){setNotice('Stok '+p.name+' sedang kosong.');return}
-  setCart(c=>{const old=c.find(x=>x.p.code===p.code);if(old&&old.qty>=p.stock){setNotice('Jumlah '+p.name+' sudah mencapai stok tersedia.');return c}return old?c.map(x=>x.p.code===p.code?{...x,qty:x.qty+1}:x):[...c,{p,qty:1}]})
+  if(busy)return;
+  setCart(c=>{const old=c.find(x=>x.p.code===p.code);return old?c.map(x=>x.p.code===p.code?{...x,qty:x.qty+1}:x):[...c,{p,qty:1}]})
  }
  async function checkout(){
   if(!cart.length||busy)return;setBusy(true);
   try{
    const lines=cart.map(x=>({code:x.p.code,qty:x.qty}));
-   if(lines.some(x=>!Number.isSafeInteger(x.qty)||x.qty<1))throw new Error('Jumlah harus bilangan bulat positif.');
-   await db.transaction('rw',db.products,db.sales,db.movements,async()=>{
-    const fresh:{p:Product;qty:number}[]=[];
-    for(const line of lines){
-     const p=await db.products.where('code').equals(line.code).first();
-     if(!p)throw new Error('Produk tidak ditemukan: '+line.code);
-     if(!Number.isFinite(p.stock)||line.qty>p.stock)throw new Error('Stok tidak cukup untuk '+p.name+'. Tersedia: '+p.stock);
-     if(!Number.isFinite(p.sellPrice)||p.sellPrice<0||!Number.isFinite(p.buyPrice)||p.buyPrice<0)throw new Error('Harga tidak valid: '+p.name);
-     fresh.push({p,qty:line.qty});
-    }
-    const sale:Sale={createdAt:new Date().toISOString(),total:fresh.reduce((a,x)=>a+x.qty*x.p.sellPrice,0),items:fresh.map(x=>({code:x.p.code,name:x.p.name,qty:x.qty,price:x.p.sellPrice,cost:x.p.buyPrice}))};
-    if(!Number.isFinite(sale.total)||sale.total<0)throw new Error('Total tidak valid.');
-    await db.sales.add(sale);
-    for(const x of fresh){
-     if(!x.p.id)throw new Error('Identitas produk tidak valid.');
-     await db.products.update(x.p.id,{stock:x.p.stock-x.qty});
-     await db.movements.add({createdAt:sale.createdAt,type:'PENJUALAN',code:x.p.code,name:x.p.name,qty:-x.qty,unitCost:x.p.buyPrice,note:'Penjualan kasir'});
-    }
-   });
+   await recordSale(lines);
    setCart([]);await refresh();setNotice('Transaksi berhasil disimpan.');
   }catch(e){setNotice('Transaksi dibatalkan: '+(e instanceof Error?e.message:String(e)));await refresh()}
   finally{setBusy(false)}
  }
  async function moveStock(type:'MASUK'|'KELUAR'){
-  if(busy)return;
-  const p=products.find(x=>x.code===query.trim()||x.barcode===query.trim());
+  if(busy)return;const p=products.find(x=>x.code===query.trim()||x.barcode===query.trim());
   if(!p){setNotice('Pilih produk dengan kode atau barcode yang tepat.');return}
-  const qty=Number(stockQty.trim());
-  if(!Number.isSafeInteger(qty)||qty<1){setNotice('Jumlah harus bilangan bulat positif.');return}
-  setBusy(true);
-  try{
-   await db.transaction('rw',db.products,db.movements,async()=>{
-    const fresh=await db.products.where('code').equals(p.code).first();
-    if(!fresh?.id)throw new Error('Produk tidak ditemukan.');
-    if(type==='KELUAR'&&qty>fresh.stock)throw new Error('Stok tidak cukup. Tersedia: '+fresh.stock);
-    const next=fresh.stock+(type==='MASUK'?qty:-qty);
-    if(!Number.isSafeInteger(next))throw new Error('Perubahan stok tidak valid.');
-    await db.products.update(fresh.id,{stock:next});
-    await db.movements.add({createdAt:new Date().toISOString(),type,code:fresh.code,name:fresh.name,qty:type==='MASUK'?qty:-qty,unitCost:fresh.buyPrice,note:type==='MASUK'?'Penerimaan':'Pengeluaran'});
-   });
-   await refresh();setNotice('Mutasi stok tersimpan.');
-  }catch(e){setNotice('Mutasi dibatalkan: '+(e instanceof Error?e.message:String(e)))}
+  const qty=Number(stockQty.trim());if(!Number.isSafeInteger(qty)||qty<1){setNotice('Jumlah harus bilangan bulat positif.');return}
+  setBusy(true);try{await recordInventoryMovement(p.code,qty,type);await refresh();setNotice('Mutasi stok tersimpan.')}
+  catch(e){setNotice('Mutasi dibatalkan: '+(e instanceof Error?e.message:String(e)))}
   finally{setBusy(false);setStockDialog(null);setStockQty('')}
  }
+ function openProductForm(product?:Product){
+  setEditingProduct(product??null);
+  setProductForm(product?{code:product.code,barcode:product.barcode||'',name:product.name,category:product.category||'',brand:product.brand||'',stock:String(product.stock),unit:product.unit||'pcs',buyPrice:String(product.buyPrice),sellPrice:String(product.sellPrice),minStock:String(product.minStock),shelf:product.shelf||'',supplier:product.supplier||''}:{code:'',barcode:'',name:'',category:'',brand:'',stock:'0',unit:'pcs',buyPrice:'0',sellPrice:'0',minStock:'0',shelf:'',supplier:''});
+  setProductDialog(true);
+ }
+ async function saveProduct(){
+  if(busy)return;const code=productForm.code.trim(),name=productForm.name.trim();
+  const stock=Number(productForm.stock),buyPrice=Number(productForm.buyPrice),sellPrice=Number(productForm.sellPrice),minStock=Number(productForm.minStock);
+  const payload:Product={code,barcode:productForm.barcode.trim(),name,category:productForm.category.trim(),brand:productForm.brand.trim(),stock,unit:productForm.unit.trim()||'pcs',buyPrice,sellPrice,minStock,shelf:productForm.shelf.trim(),supplier:productForm.supplier.trim()};
+  setBusy(true);try{await saveCatalogProduct(payload,editingProduct);await refresh();setProductDialog(false);setEditingProduct(null);setNotice(editingProduct?'Master barang berhasil diperbarui.':'Barang baru berhasil ditambahkan.')}
+  catch(e){setNotice('Simpan master barang gagal: '+(e instanceof Error?e.message:String(e)))}finally{setBusy(false)}
+ }
+ async function deleteProduct(product:Product){
+  if(busy||!product.id)return;
+  if(!window.confirm('Hapus "'+product.name+'" dari master barang pada perangkat ini? Riwayat transaksi dan mutasi yang sudah tersimpan tidak ikut dihapus.'))return;
+  setBusy(true);try{await removeCatalogProduct(product);setCart(current=>current.filter(item=>item.p.code!==product.code));await refresh();setNotice('Barang berhasil dihapus dari master lokal.')}
+  catch(e){setNotice('Hapus barang gagal: '+(e instanceof Error?e.message:String(e)))}finally{setBusy(false)}
+ }
  async function importCSV(file:File){
-  if(busy)return;
-  setBusy(true);
-  try{
-   const raw=await file.text();
-   const parsed=parseMasterCSV(raw);
-   const {list,skipped}=productsFromCSV(parsed);
-   if(list.length<1)throw new Error('Tidak ada produk valid untuk diimpor.');
-   const existing=await db.products.toArray(),byCode=new Map(existing.map(p=>[p.code,p]));
-   await db.transaction('rw',db.products,async()=>{
-    for(const p of list){
-     const old=byCode.get(p.code);
-     if(old?.id)await db.products.update(old.id,{...p,stock:old.stock,barcode:p.barcode||old.barcode});
-     else await db.products.add(p);
-    }
-   });
-   await refresh();setNotice('Impor berhasil: '+list.length+' produk; stok lokal dipertahankan.'+(skipped?' · '+skipped+' baris kosong/non-produk dilewati.':'')+(parsed.repaired?' · '+parsed.repaired+' baris CSV tergabung diperbaiki.':''));
-  }catch(e){setNotice('Impor CSV dibatalkan: '+(e instanceof Error?e.message:String(e)))}
-  finally{setBusy(false)}
+  if(busy)return;setBusy(true);try{const parsed=parseMasterCSV(await file.text());const {list,skipped}=productsFromCSV(parsed);await importCatalogProducts(list);await refresh();setNotice('Impor berhasil: '+list.length+' produk; stok lokal dipertahankan.'+(skipped?', '+skipped+' baris kosong/non-produk dilewati.':'')+(parsed.repaired?', '+parsed.repaired+' baris CSV tergabung diperbaiki.':''))}
+  catch(e){setNotice('Impor CSV dibatalkan: '+(e instanceof Error?e.message:String(e)))}finally{setBusy(false)}
  }
- async function stopScan(){if(scanTimerRef.current!==undefined)window.clearTimeout(scanTimerRef.current);scanTimerRef.current=undefined;const q=scannerRef.current;scannerRef.current=null;if(q){try{if(q.isScanning)await q.stop();q.clear()}catch{}}setScan(false)}
+ async function stopScan(){if(scanTimerRef.current!==undefined)window.clearTimeout(scanTimerRef.current);scanTimerRef.current=undefined;const q=scannerRef.current;scannerRef.current=null;if(q)await q.stop();setScan(false)}
  async function startScan(showReadNotice=true){
-  if(scan||scanTimerRef.current!==undefined)return;
-  setScan(true);
-  scanTimerRef.current=window.setTimeout(async()=>{
-   scanTimerRef.current=undefined;
-   const reader=document.getElementById('barcode-reader');
-   if(!reader){setScan(false);setNotice('Area pemindai belum siap. Coba buka kembali.');return}
-   let q:Html5Qrcode|null=null;
-   try{
-    if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia)throw new Error('Akses kamera memerlukan koneksi aplikasi yang aman. Perbarui aplikasi dan coba lagi.');
-    const cameras=await Html5Qrcode.getCameras();
-    if(!cameras.length)throw new Error('Kamera tidak ditemukan pada perangkat ini.');
-    const camera=cameras.find(c=>/back|rear|environment|belakang/i.test(c.label))||cameras[cameras.length-1];
-    q=new Html5Qrcode('barcode-reader',{verbose:false});
-    scannerRef.current=q;
-    const boxWidth=Math.max(180,Math.min(280,reader.clientWidth-32));
-    await q.start(camera.id,{fps:12,qrbox:{width:boxWidth,height:Math.round(boxWidth*.48)},aspectRatio:16/9},async value=>{
-     if(scannerRef.current!==q)return;
-     setQuery(value.trim());
-     if(showReadNotice)setNotice('Barcode berhasil dibaca: '+value.trim());
-     await stopScan();
-    },()=>{});
-    if(scannerRef.current!==q&&q.isScanning)await q.stop();
-   }catch(error){
-    if(scannerRef.current===q)scannerRef.current=null;
-    if(q){try{if(q.isScanning)await q.stop();q.clear()}catch{}}
-    const message=error instanceof Error?error.message:String(error),lower=message.toLowerCase();
-    setNotice(lower.includes('permission')||lower.includes('notallowed')||lower.includes('denied')
-     ?'Izin kamera ditolak. Izinkan akses Kamera untuk aplikasi POS Apotek di pengaturan Android.'
-     :lower.includes('secure')?'Akses kamera tidak tersedia pada konteks aplikasi ini. Perbarui aplikasi Android.'
-     :'Pemindai gagal dibuka: '+message);
-    setScan(false);
-   }
-  },350);
+  if(scan||scanTimerRef.current!==undefined)return;setScan(true);
+  scanTimerRef.current=window.setTimeout(async()=>{scanTimerRef.current=undefined;const scanner=new BarcodeScanner();scannerRef.current=scanner;
+   try{await scanner.start('barcode-reader',async value=>{if(scannerRef.current!==scanner)return;setQuery(value);if(showReadNotice)setNotice('Barcode berhasil dibaca: '+value);await stopScan()})}
+   catch(error){if(scannerRef.current===scanner)scannerRef.current=null;await scanner.stop();const message=error instanceof Error?error.message:String(error),lower=message.toLowerCase();setNotice(lower.includes('permission')||lower.includes('notallowed')||lower.includes('denied')?'Izin kamera ditolak. Izinkan akses Kamera untuk aplikasi POS Apotek di pengaturan Android.':lower.includes('secure')?'Akses kamera tidak tersedia pada konteks aplikasi ini. Perbarui aplikasi Android.':'Pemindai gagal dibuka: '+message);setScan(false)}
+  },350)
  }
- useEffect(()=>()=>{if(scanTimerRef.current!==undefined)window.clearTimeout(scanTimerRef.current);const q=scannerRef.current;if(q?.isScanning)void q.stop()},[]);
+ useEffect(()=>()=>{if(scanTimerRef.current!==undefined)window.clearTimeout(scanTimerRef.current);const q=scannerRef.current;if(q)void q.stop()},[]);
  async function backupAll(){
   try{setBusy(true);const payload={format:'naufal-farma-pos-backup',version:1,createdAt:new Date().toISOString(),data:{products:await db.products.toArray(),sales:await db.sales.toArray(),movements:await db.movements.toArray()}};
    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
@@ -251,6 +120,7 @@ export default function App(){
    const ms:Movement[]=raw.data.movements.map((v:any)=>{if(typeof v.createdAt!=='string'||!['MASUK','KELUAR','PENJUALAN'].includes(v.type)||typeof v.code!=='string'||!Number.isSafeInteger(v.qty)||!Number.isFinite(v.unitCost))throw new Error('Data mutasi tidak valid.');return v});
    const codes=new Set<string>();for(const p of ps){if(codes.has(p.code))throw new Error('Kode produk duplikat: '+p.code);codes.add(p.code)}
    await db.transaction('rw',db.products,db.sales,db.movements,async()=>{await db.products.clear();await db.sales.clear();await db.movements.clear();await db.products.bulkAdd(ps);await db.sales.bulkAdd(ss);await db.movements.bulkAdd(ms)});
+   clearProductSyncPreferences();
    await refresh();setCart([]);setNotice('Pemulihan selesai: '+ps.length+' produk, '+ss.length+' transaksi, '+ms.length+' mutasi.');
   }catch(e){setNotice('Pemulihan dibatalkan: '+(e instanceof Error?e.message:String(e)))}
   finally{setBusy(false)}
@@ -282,23 +152,46 @@ export default function App(){
  async function downloadReceiptPDF(sale:Sale){
   setPdfBusy(true);
   try{
-   const doc=new jsPDF({unit:'mm',format:[80,180]});
-   const pageW=80,margin=5;let y=9;
-   doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('APOTEK NAUFAL FARMA',pageW/2,y,{align:'center'});y+=6;
-   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text('STRUK PENJUALAN',pageW/2,y,{align:'center'});y+=6;
-   doc.setFontSize(7);doc.text('No: '+(sale.id??'-'),margin,y);y+=4;doc.text(pdfDate(sale.createdAt),margin,y);y+=4;
-   doc.line(margin,y,pageW-margin,y);y+=5;
-   doc.setFont('helvetica','bold');doc.text('Produk',margin,y);doc.text('Total',pageW-margin,y,{align:'right'});y+=4;
-   doc.setFont('helvetica','normal');
-   for(const item of sale.items){
-    const lines=doc.splitTextToSize(item.name, pageW-2*margin-2);
-    doc.text(lines,margin,y);y+=lines.length*3.5;
-    doc.text(item.qty+' x '+money(item.price),margin+2,y);doc.text(money(item.qty*item.price),pageW-margin,y,{align:'right'});y+=4;
-    if(y>165){doc.addPage([80,180]);y=10}
+   const pageW=80,margin=6,contentW=pageW-margin*2;
+   const measureDoc=new jsPDF({unit:'mm',format:[80,180]});
+   const rows=sale.items.map(item=>({item,lines:measureDoc.splitTextToSize(item.name,contentW)}));
+   const itemHeight=rows.reduce((sum,row)=>sum+Math.max(1,row.lines.length)*3.6+7,0);
+   const receiptHeight=Math.max(180,150+itemHeight);
+   const doc=new jsPDF({unit:'mm',format:[pageW,receiptHeight]});
+   let y=0;
+   doc.setFillColor(19,105,75);doc.rect(0,0,pageW,31,'F');
+   doc.setFillColor(255,255,255);doc.circle(pageW/2,8,3,'F');
+   doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(12);
+   doc.text('NAUFAL FARMA',pageW/2,17,{align:'center'});
+   doc.setFont('helvetica','normal');doc.setFontSize(7.5);
+   doc.text('APOTEK  •  STRUK PEMBELIAN',pageW/2,23,{align:'center'});
+   y=39;doc.setTextColor(28,57,45);doc.setFont('helvetica','bold');doc.setFontSize(8);
+   doc.text('DETAIL TRANSAKSI',margin,y);y+=5;
+   doc.setFont('helvetica','normal');doc.setFontSize(7);
+   doc.setTextColor(94,115,104);doc.text('Nomor transaksi',margin,y);doc.setTextColor(28,57,45);doc.text(String(sale.id??'-'),pageW-margin,y,{align:'right'});y+=4;
+   doc.setTextColor(94,115,104);doc.text('Tanggal',margin,y);doc.setTextColor(28,57,45);doc.text(pdfDate(sale.createdAt),pageW-margin,y,{align:'right'});y+=6;
+   doc.setDrawColor(207,221,211);doc.setLineWidth(.25);doc.line(margin,y,pageW-margin,y);y+=6;
+   doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(75,100,86);
+   doc.text('PRODUK',margin,y);doc.text('JUMLAH',pageW-margin,y,{align:'right'});y+=5;
+   doc.setFont('helvetica','normal');doc.setTextColor(28,57,45);
+   for(const {item,lines} of rows){
+    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.text(lines,margin,y);y+=Math.max(1,lines.length)*3.6;
+    doc.setFont('helvetica','normal');doc.setFontSize(7);
+    doc.setTextColor(94,115,104);doc.text(item.qty+' x '+money(item.price),margin+1,y);
+    doc.setTextColor(28,57,45);doc.text(money(item.qty*item.price),pageW-margin,y,{align:'right'});y+=7;
    }
-   doc.line(margin,y,pageW-margin,y);y+=6;
-   doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text('TOTAL',margin,y);doc.text(money(sale.total),pageW-margin,y,{align:'right'});y+=8;
-   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text('Terima kasih telah berbelanja',pageW/2,y,{align:'center'});y+=4;doc.text('Semoga lekas sehat kembali.',pageW/2,y,{align:'center'});
+   doc.setDrawColor(207,221,211);doc.line(margin,y,pageW-margin,y);y+=7;
+   const totalQty=sale.items.reduce((sum,item)=>sum+item.qty,0);
+   doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(94,115,104);
+   doc.text('Jumlah item',margin,y);doc.setTextColor(28,57,45);doc.text(String(totalQty),pageW-margin,y,{align:'right'});y+=7;
+   doc.setFillColor(232,245,237);doc.roundedRect(margin,y,contentW,19,3,3,'F');
+   doc.setTextColor(31,94,63);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('TOTAL PEMBAYARAN',margin+4,y+7);
+   doc.setFontSize(12);doc.text(money(sale.total),pageW-margin-4,y+14,{align:'right'});y+=29;
+   doc.setDrawColor(207,221,211);doc.line(margin,y,pageW-margin,y);y+=8;
+   doc.setTextColor(31,94,63);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('Terima kasih telah berbelanja!',pageW/2,y,{align:'center'});y+=5;
+   doc.setTextColor(94,115,104);doc.setFont('helvetica','normal');doc.setFontSize(7);
+   doc.text('Semoga lekas sehat kembali.',pageW/2,y,{align:'center'});y+=8;
+   doc.setFontSize(6);doc.text('Simpan struk ini sebagai bukti transaksi.',pageW/2,y,{align:'center'});
    await savePDF(doc,'struk-naufal-farma-'+(sale.id??Date.now())+'.pdf');
   }catch(e){setNotice('PDF struk gagal dibuat: '+String(e))}finally{setPdfBusy(false)}
  }
@@ -308,12 +201,12 @@ export default function App(){
   try{
    const doc=new jsPDF({unit:'mm',format:'a4'}),left=14,right=196;let y=16;
    const from=reportFrom||'Awal',to=reportTo||'Hari ini';
-   doc.setFont('helvetica','bold');doc.setFontSize(16);doc.text('APOTEK NAUFAL FARMA',left,y);y+=7;
+   doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(24,83,58);doc.text('APOTEK NAUFAL FARMA',left,y);y+=7;
    doc.setFontSize(11);doc.text('LAPORAN PENJUALAN',left,y);y+=6;
    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text('Periode: '+from+' s.d. '+to,left,y);y+=8;
    const total=list.reduce((a,v)=>a+v.total,0),profitTotal=list.reduce((a,v)=>a+v.items.reduce((b,i)=>b+(i.price-i.cost)*i.qty,0),0);
    doc.setFont('helvetica','bold');doc.text('Jumlah transaksi: '+list.length,left,y);y+=5;doc.text('Omzet: '+money(total),left,y);y+=5;doc.text('Estimasi laba: '+money(profitTotal),left,y);y+=8;
-   const drawHead=()=>{doc.setFillColor(232,241,250);doc.rect(left,y,182,8,'F');doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('Waktu',left+2,y+5);doc.text('Rincian',left+38,y+5);doc.text('Total',right-2,y+5,{align:'right'});y+=11};
+   const drawHead=()=>{doc.setFillColor(222,239,228);doc.setDrawColor(183,211,190);doc.rect(left,y,182,8,'F');doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('Waktu',left+2,y+5);doc.text('Rincian',left+38,y+5);doc.text('Total',right-2,y+5,{align:'right'});y+=11};
    drawHead();doc.setFont('helvetica','normal');
    for(const sale of list){
     const details=doc.splitTextToSize(sale.items.map(i=>i.name+' x'+i.qty).join(', '),112);
@@ -324,84 +217,143 @@ export default function App(){
    await savePDF(doc,'laporan-penjualan-naufal-farma-'+(reportFrom||'semua')+'-'+(reportTo||'terkini')+'.pdf');
   }catch(e){setNotice('PDF laporan gagal dibuat: '+String(e))}finally{setPdfBusy(false)}
  }
- async function downloadStockOutPDF(list:Movement[]){
+ async function downloadInventoryPDF(list:Movement[],type:'MASUK'|'KELUAR'){
   if(reportFrom&&reportTo&&reportFrom>reportTo){setNotice('Tanggal awal tidak boleh melewati tanggal akhir.');return}
-  if(!list.length){setNotice('Tidak ada barang keluar pada rentang tanggal ini.');return}
+  if(!list.length){setNotice(type==='MASUK'?'Tidak ada barang masuk pada rentang tanggal ini.':'Tidak ada barang keluar pada rentang tanggal ini.');return}
   setPdfBusy(true);
   try{
-   const doc=new jsPDF({unit:'mm',format:'a4'}),left=14,right=196;let y=16;
-   const totalQty=list.reduce((a,m)=>a+Math.abs(m.qty),0),grandTotal=list.reduce((a,m)=>a+Math.abs(m.qty)*m.unitCost,0);
-   doc.setFont('helvetica','bold');doc.setFontSize(16);doc.text('APOTEK NAUFAL FARMA',left,y);y+=7;
-   doc.setFontSize(11);doc.text('LAPORAN BARANG KELUAR',left,y);y+=6;
-   doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text('Periode: '+(reportFrom||'Awal')+' s.d. '+(reportTo||'Hari ini'),left,y);y+=8;
-   doc.setFont('helvetica','bold');doc.text('Jumlah catatan: '+list.length,left,y);y+=5;doc.text('Total qty: '+totalQty,left,y);y+=5;doc.text('Total nilai harga beli: '+money(grandTotal),left,y);y+=8;
-   const drawHead=()=>{doc.setFillColor(226,240,232);doc.rect(left,y,182,8,'F');doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('Nama barang',left+2,y+5);doc.text('Qty',left+116,y+5,{align:'right'});doc.text('Harga beli',right-38,y+5,{align:'right'});doc.text('Total',right-2,y+5,{align:'right'});y+=11};
-   drawHead();doc.setFont('helvetica','normal');
-   for(const m of list){
-    const nameLines=doc.splitTextToSize(m.name,94),rowH=Math.max(7,nameLines.length*4);
-    if(y+rowH>280){doc.addPage();y=16;drawHead();doc.setFont('helvetica','normal')}
-    const qty=Math.abs(m.qty),lineTotal=qty*m.unitCost;
-    doc.setFontSize(7.5);doc.text(nameLines,left+2,y);doc.text(String(qty),left+116,y,{align:'right'});doc.text(money(m.unitCost),right-38,y,{align:'right'});doc.text(money(lineTotal),right-2,y,{align:'right'});y+=rowH+2;
-    doc.setDrawColor(220,230,223);doc.line(left,y-1,right,y-1);
-   }
-   if(y+10>280){doc.addPage();y=16}
-   doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text('TOTAL KESELURUHAN',left,y+5);doc.text(money(grandTotal),right-2,y+5,{align:'right'});
-   await savePDF(doc,'laporan-barang-keluar-'+(reportFrom||'semua')+'-'+(reportTo||'terkini')+'.pdf');
-  }catch(e){setNotice('PDF barang keluar gagal dibuat: '+String(e))}finally{setPdfBusy(false)}
+   const doc=buildInventoryMovementPDF(list,type,{from:reportFrom,to:reportTo},money);
+   const label=type==='MASUK'?'masuk':'keluar';
+   await savePDF(doc,'laporan-barang-'+label+'-'+(reportFrom||'semua')+'-'+(reportTo||'terkini')+'.pdf');
+  }catch(e){setNotice('PDF barang '+(type==='MASUK'?'masuk':'keluar')+' gagal dibuat: '+String(e))}
+  finally{setPdfBusy(false)}
  }
  const exportCSV=()=>{const csv=Papa.unparse(products.map(p=>({'Kode Item':p.code,'Kode Barcode':p.barcode,'Nama Item':p.name,'Jenis':p.category,'Merek':p.brand,'Stok':p.stock,'Satuan':p.unit,'Harga Beli':p.buyPrice,'Harga Jual':p.sellPrice,'Stok Min':p.minStock,'Rak':p.shelf,'Supplier':p.supplier})));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='backup-produk.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)};
- return <div className="app"><nav className="topbar" aria-label="Navigasi utama">
- <div className="brand"><span className="brandmark">N</span><div><b>NAUFAL FARMA</b><small>POINT OF SALE</small></div></div>
- <span className="top-status"><span className="dot"/>{syncState==='syncing'?'Sync…':syncState==='online'?'Cloud aktif':syncState==='error'?'Sync gagal':'Offline lokal'}</span>
+ return <div className="nf-app"><nav className="nf-app-topbar" aria-label="Navigasi utama">
+ <div className="nf-brand"><span className="nf-brandmark"><Pill size={22}/></span><div><b>NAUFAL FARMA</b><small>Apotek point of sale</small></div></div>
+ <span className="nf-top-status">{syncState==='syncing'?'Sync…':syncState==='online'?'Cloud aktif':syncState==='error'?'Sync gagal':'Offline lokal'}</span>
 </nav>
- <div className="nav-menu" aria-label="Navigasi utama">
-  <button className={'nav '+(tab==='Dashboard'?'active':'')} onClick={()=>{setTab('Dashboard');setQuery('');setOpenMenu(null)}}><Home/><span>Dashboard</span></button>
-  <button className={'nav '+(tab==='Kasir'?'active':'')} onClick={()=>{setTab('Kasir');setQuery('');setOpenMenu(null)}}><ShoppingCart/><span>Kasir</span></button>
-  <div className="nav-item">
-   <button className={'nav '+((tab==='Barang'||tab==='Cek Harga')?'active':'')} aria-haspopup="true" aria-expanded={openMenu==='Produk'} onClick={()=>setOpenMenu(openMenu==='Produk'?null:'Produk')}><Package/><span>Produk</span><ChevronDown className="chevron"/></button>
-   {openMenu==='Produk'&&<div className="nav-submenu" role="group" aria-label="Menu Produk">
-    <button className={tab==='Barang'?'selected':''} onClick={()=>{setTab('Barang');setQuery('');setOpenMenu(null)}}><Boxes size={16}/> Master Barang</button>
-    <button className={tab==='Cek Harga'?'selected':''} onClick={()=>{setTab('Cek Harga');setQuery('');setOpenMenu(null)}}><Search size={16}/> Cek Harga</button>
+ <div className="nf-app-nav" role="navigation" aria-label="Navigasi utama">
+  <button className={'nf-nav nf-nav-home '+(tab==='Dashboard'?'nf-active':'')} onClick={()=>{setTab('Dashboard');setQuery('');setOpenMenu(null)}}><Home/><span>Beranda</span></button>
+  <div className="nf-nav-item">
+   <button className={'nf-nav nf-nav-product '+((tab==='Barang'||tab==='Cek Harga')?'nf-active':'')} aria-haspopup="true" aria-expanded={openMenu==='Produk'} onClick={()=>setOpenMenu(openMenu==='Produk'?null:'Produk')}><Package/><span>Produk</span><ChevronDown className="nf-chevron"/></button>
+   {openMenu==='Produk'&&<div className="nf-nav-submenu" role="group" aria-label="Menu Produk">
+    <button className={tab==='Barang'?'nf-selected':''} onClick={()=>{setTab('Barang');setQuery('');setOpenMenu(null)}}><Boxes size={16}/> Master Barang</button>
+    <button className={tab==='Cek Harga'?'nf-selected':''} onClick={()=>{setTab('Cek Harga');setQuery('');setOpenMenu(null)}}><Search size={16}/> Cek Harga</button>
    </div>}
   </div>
-  <div className="nav-item">
-   <button className={'nav '+((tab==='Barang Masuk'||tab==='Barang Keluar')?'active':'')} aria-haspopup="true" aria-expanded={openMenu==='Persediaan'} onClick={()=>setOpenMenu(openMenu==='Persediaan'?null:'Persediaan')}><Boxes/><span>Persediaan</span><ChevronDown className="chevron"/></button>
-   {openMenu==='Persediaan'&&<div className="nav-submenu" role="group" aria-label="Menu Persediaan">
-    <button className={tab==='Barang Masuk'?'selected':''} onClick={()=>{setTab('Barang Masuk');setQuery('');setOpenMenu(null)}}><ArrowDownToLine size={16}/> Barang Masuk</button>
-    <button className={tab==='Barang Keluar'?'selected':''} onClick={()=>{setTab('Barang Keluar');setQuery('');setOpenMenu(null)}}><ArrowUpFromLine size={16}/> Barang Keluar</button>
+  <div className="nf-nav-item">
+   <button className={'nf-nav nf-nav-inventory '+((tab==='Barang Masuk'||tab==='Barang Keluar')?'nf-active':'')} aria-haspopup="true" aria-expanded={openMenu==='Persediaan'} onClick={()=>setOpenMenu(openMenu==='Persediaan'?null:'Persediaan')}><Boxes/><span>Persediaan</span><ChevronDown className="nf-chevron"/></button>
+   {openMenu==='Persediaan'&&<div className="nf-nav-submenu" role="group" aria-label="Menu Persediaan">
+    <button className={tab==='Barang Masuk'?'nf-selected':''} onClick={()=>{setTab('Barang Masuk');setQuery('');setOpenMenu(null)}}><ArrowDownToLine size={16}/> Barang Masuk</button>
+    <button className={tab==='Barang Keluar'?'nf-selected':''} onClick={()=>{setTab('Barang Keluar');setQuery('');setOpenMenu(null)}}><ArrowUpFromLine size={16}/> Barang Keluar</button>
    </div>}
   </div>
-  <button className={'nav '+(tab==='Laporan'?'active':'')} onClick={()=>{setTab('Laporan');setQuery('');setOpenMenu(null)}}><BarChart3/><span>Laporan</span></button>
-  <button className={'nav '+(tab==='Pengaturan'?'active':'')} onClick={()=>{setTab('Pengaturan');setQuery('');setOpenMenu(null)}}><Settings/><span>Pengaturan</span></button>
+  <button className={'nf-nav nf-nav-cashier '+(tab==='Kasir'?'nf-active':'')} onClick={()=>{setTab('Kasir');setQuery('');setOpenMenu(null)}}><ShoppingCart/><span>Kasir</span></button>
+  <button className={'nf-nav nf-nav-reports '+(tab==='Laporan'?'nf-active':'')} onClick={()=>{setTab('Laporan');setQuery('');setOpenMenu(null)}}><BarChart3/><span>Laporan</span></button>
+  <button className={'nf-nav nf-nav-settings '+(tab==='Pengaturan'?'nf-active':'')} onClick={()=>{setTab('Pengaturan');setQuery('');setOpenMenu(null)}}><Settings/><span>Pengaturan</span></button>
  </div>
- <main className="main"><header><div><span className="eyebrow">APOTEK NAUFAL FARMA</span><h1>{tab}</h1></div><span className="online">{syncState==='online'?<Cloud size={15}/>:<WifiOff size={15}/>} {syncState==='syncing'?'Sinkronisasi…':syncState==='online'?'Cloud tersinkron':syncState==='error'?'Sync gagal · data lokal':'Mode offline'}</span></header>{notice&&<div className="toast">{notice}</div>}
- {tab==='Dashboard'&&<><section className="welcome"><div><span className="eyebrow"><Sparkles size={13}/> RINGKASAN</span><h2>Apotek dalam<br/>satu sentuhan.</h2><div className="welcome-badges"><span><ShieldCheck size={13}/> Lokal</span><span><Activity size={13}/> Aktif</span></div></div><div className="welcome-art" aria-hidden="true"><div className="art-orbit orbit-one"/><div className="art-orbit orbit-two"/><div className="art-capsule"><Pill size={48}/></div><span className="art-spark spark-one">✦</span><span className="art-spark spark-two">✧</span></div></section><div className="stats">{[['Produk',products.length,PackageCheck],['Omzet',money(revenue),TrendingUp],['Laba',money(profit),Activity],['Stok tipis',products.filter(p=>p.stock<=p.minStock).length,AlertTriangle]].map(([a,b,Icon]:any,i)=><div className="stat" key={String(a)}><div className="stat-top"><span>{a}</span><i className={"stat-icon stat-icon-"+i}><Icon size={18}/></i></div><strong>{b}</strong></div>)}</div><section className="panel"><div className="panel-head"><h3><AlertTriangle size={17}/> Stok perlu dicek</h3><span className="section-count">{products.filter(p=>p.stock<=p.minStock).length}</span></div>{products.filter(p=>p.stock<=p.minStock).slice(0,12).map(p=><p className="row" key={p.code}>{p.name} <b>{p.stock} {p.unit}</b></p>)}</section></>}
- {tab==='Kasir'&&<div className="grid-two"><section className="panel"><div className="panel-head"><h3><ShoppingBag size={17}/> Produk</h3><UiButton className="soft-btn" aria-label="Scan barcode" onClick={()=>void startScan()}><ScanLine size={17}/></UiButton></div><UiInput className="search" placeholder="Cari nama, kode, barcode..." value={query} onChange={e=>setQuery(e.target.value)}/>{filtered.slice(0,40).map(p=><button className="product-pick" key={p.code} disabled={p.stock<1} onClick={()=>add(p)}><span>{p.name}<small>{p.code} · Stok {p.stock}</small></span><b>{money(p.sellPrice)}</b></button>)}{!filtered.length&&<p className="empty-state">Produk tidak ditemukan.</p>}{filtered.length>40&&<p className="empty-state">Menampilkan 40 produk pertama. Persempit pencarian untuk hasil lainnya.</p>}</section><section className="panel"><h3><ShoppingCart size={17}/> Keranjang <span className="section-count">{cart.length}</span></h3>{!cart.length&&<p className="empty-state">Keranjang masih kosong. Pilih produk untuk memulai transaksi.</p>}{cart.map(x=><div className="cart-row" key={x.p.code}><div className="cart-info"><b>{x.p.name}</b><small>{money(x.p.sellPrice)} / {x.p.unit}</small></div><div className="qty-control"><button aria-label={'Kurangi '+x.p.name} onClick={()=>setCart(c=>c.map(y=>y.p.code===x.p.code?{...y,qty:Math.max(0,y.qty-1)}:y).filter(y=>y.qty>0))}>−</button><b>{x.qty}</b><button aria-label={'Tambah '+x.p.name} onClick={()=>add(x.p)}>+</button></div><strong>{money(x.qty*x.p.sellPrice)}</strong></div>)}<h2>{money(cart.reduce((a,x)=>a+x.qty*x.p.sellPrice,0))}</h2><button className="primary full checkout-btn" disabled={!cart.length||busy} onClick={()=>void checkout()}><ShoppingCart size={17}/>{busy?'Memproses…':'Bayar sekarang'}</button></section></div>}
- {(tab==='Cek Harga'||tab==='Barang')&&<section className="panel"><div className="panel-head"><h3>{tab==='Barang'?'Master barang':'Pencarian harga produk'}</h3><div className="panel-actions">{tab==='Barang'&&<label className="soft-btn upload"><Upload size={16}/> Impor CSV<input type="file" accept=".csv,text/csv" disabled={busy} onChange={e=>{const file=e.target.files?.[0];e.currentTarget.value='';if(file)void importCSV(file)}}/></label>}</div></div><div className="search-with-scan"><UiInput className="search" placeholder="Cari nama, kode, atau barcode..." value={query} onChange={e=>setQuery(e.target.value)}/><UiButton className="soft-btn scan-search-btn" aria-label="Buka pemindai barcode" onClick={()=>void startScan(tab!=="Cek Harga")}><Camera size={18}/></UiButton></div><div className="table-wrap"><table><thead><tr><th>Nama</th><th>Kode</th><th>Barcode</th><th>Stok</th><th>Harga beli</th><th>Harga jual</th></tr></thead><tbody>{filtered.slice(0,60).map(p=><tr key={p.code}><td>{p.name}</td><td>{p.code}</td><td>{p.barcode||'—'}</td><td>{p.stock} {p.unit}</td><td>{money(p.buyPrice)}</td><td>{money(p.sellPrice)}</td></tr>)}{!filtered.length&&<tr><td colSpan={6} className="empty-state">Produk tidak ditemukan.</td></tr>}</tbody></table></div>{filtered.length>60&&<p className="empty-state">Menampilkan 60 produk pertama. Gunakan pencarian untuk mempersempit hasil.</p>}</section>}
- {(tab==='Barang Masuk'||tab==='Barang Keluar')&&<section className="panel"><h3>{tab}</h3><div className="search-with-scan"><UiInput className="search" placeholder="Kode item atau barcode" value={query} onChange={e=>setQuery(e.target.value)}/><UiButton className="soft-btn scan-search-btn" aria-label="Scan barcode produk" onClick={()=>void startScan()}><Camera size={18}/></UiButton></div><p>{products.find(p=>p.code===query||p.barcode===query)?.name||'Masukkan kode produk yang tepat.'}</p><button type="button" className="primary" disabled={!products.some(p=>p.code===query.trim()||p.barcode===query.trim())||busy} onClick={()=>{setStockQty('');setStockDialog(tab==='Barang Masuk'?'MASUK':'KELUAR')}}>Catat mutasi</button><h3>Riwayat mutasi</h3>{moves.filter(m=>m.type===(tab==='Barang Masuk'?'MASUK':'KELUAR')).slice(-30).reverse().map((m,i)=><p className="row" key={i}>{m.createdAt.slice(0,16)} · {m.name} · {m.qty}</p>)}</section>}
- {tab==='Laporan'&&(()=>{const inPeriod=(date:string)=>(!reportFrom||localDate(new Date(date))>=reportFrom)&&(!reportTo||localDate(new Date(date))<=reportTo);const reportSales=sales.filter(s=>inPeriod(s.createdAt)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));const outgoing=moves.filter(m=>m.type==='KELUAR'&&inPeriod(m.createdAt)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));const total=reportSales.reduce((a,s)=>a+s.total,0),outQty=outgoing.reduce((a,m)=>a+Math.abs(m.qty),0),outValue=outgoing.reduce((a,m)=>a+Math.abs(m.qty)*m.unitCost,0);return <><section className="panel"><div className="panel-head"><h3>Riwayat penjualan</h3><b>Omzet: {money(total)}</b></div><div className="report-tools"><label>Dari tanggal<input type="date" value={reportFrom} onChange={e=>setReportFrom(e.target.value)}/></label><label>Sampai tanggal<input type="date" value={reportTo} onChange={e=>setReportTo(e.target.value)}/></label><button className="primary" disabled={pdfBusy||!reportSales.length} onClick={()=>void downloadReportPDF(reportSales)}><Download size={16}/> {pdfBusy?'Membuat PDF…':'Unduh laporan PDF'}</button></div><p className="report-summary">{reportSales.length} transaksi · Omzet {money(total)} · Estimasi laba {money(reportSales.reduce((a,s)=>a+s.items.reduce((b,i)=>b+(i.price-i.cost)*i.qty,0),0))}</p>{reportSales.map((sale,i)=><div className="report-row" key={sale.id??sale.createdAt+i}><div><b>{pdfDate(sale.createdAt)}</b><small>{sale.items.map(x=>x.name+' ×'+x.qty).join(', ')}</small><strong>{money(sale.total)}</strong></div><button className="soft-btn" disabled={pdfBusy} onClick={()=>void downloadReceiptPDF(sale)}><Download size={15}/> Struk PDF</button></div>)}</section><section className="panel"><div className="panel-head"><h3>Laporan barang keluar</h3><b>Total: {money(outValue)}</b></div><p className="report-summary">{outgoing.length} catatan · Total qty {outQty} · Total nilai harga beli {money(outValue)}</p><div className="report-tools"><button className="primary" disabled={pdfBusy||!outgoing.length} onClick={()=>void downloadStockOutPDF(outgoing)}><Download size={16}/> {pdfBusy?'Membuat PDF…':'Unduh laporan barang keluar'}</button></div><div className="table-wrap"><table><thead><tr><th>Nama barang</th><th>Qty</th><th>Harga beli</th><th>Total</th></tr></thead><tbody>{outgoing.map((m,i)=><tr key={m.id??m.createdAt+m.code+i}><td><b>{m.name}</b><small className="table-subtext">{pdfDate(m.createdAt)}</small></td><td>{Math.abs(m.qty)}</td><td>{money(m.unitCost)}</td><td><b>{money(Math.abs(m.qty)*m.unitCost)}</b></td></tr>)}{!outgoing.length&&<tr><td colSpan={4} className="empty-state">Belum ada barang keluar pada periode ini.</td></tr>}</tbody><tfoot><tr><th colSpan={3}>TOTAL KESELURUHAN</th><th>{money(outValue)}</th></tr></tfoot></table></div></section></>})()}
- {tab==='Pengaturan'&&<div className="settings-layout">
-  <section className="panel settings-panel">
-   <div className="settings-heading"><span className="settings-icon"><Sun size={20}/></span><div><h3>Tampilan aplikasi</h3><p>Pilih tema yang nyaman digunakan. Pengaturan tersimpan otomatis di perangkat ini.</p></div></div>
-   <div className="theme-picker" role="group" aria-label="Pilih tema tampilan">
-    <button type="button" className={'theme-option '+(theme==='light'?'selected':'')} aria-pressed={theme==='light'} onClick={()=>setTheme('light')}><span className="theme-option-icon"><Sun size={20}/></span><span className="theme-option-copy"><b>Light mode</b><small>Pearl · Crystal Liquid</small></span>{theme==='light'&&<ShieldCheck className="theme-check" size={19}/>}</button>
-    <button type="button" className={'theme-option '+(theme==='dark'?'selected':'')} aria-pressed={theme==='dark'} onClick={()=>setTheme('dark')}><span className="theme-option-icon"><Moon size={20}/></span><span className="theme-option-copy"><b>Dark mode</b><small>Graphite · nyaman malam hari</small></span>{theme==='dark'&&<ShieldCheck className="theme-check" size={19}/>}</button>
+ <main className="nf-app-main"><header className="nf-screen-header"><div><span className="nf-screen-context">Naufal Farma / Operasional</span><h1>{tab==='Dashboard'?'Beranda':tab}</h1></div><span className="nf-online">{syncState==='online'?<Cloud size={15}/>:<WifiOff size={15}/>} {syncState==='syncing'?'Sinkronisasi…':syncState==='online'?'Cloud tersinkron':syncState==='error'?'Sync gagal, data lokal':'Mode offline'}</span></header>{notice&&<div className="nf-toast" role="status" aria-live="polite" aria-atomic="true">{notice}</div>}
+ {tab==='Dashboard'&&<><section className="nf-dashboard-welcome"><div><span className="nf-hero-eyebrow"><span className="nf-hero-live-dot"/> RINGKASAN OPERASIONAL</span><h2>Selamat datang di Naufal Farma</h2><p>Pantau kondisi apotek dan aktivitas hari ini.</p></div><button type="button" className="nf-dashboard-start" onClick={()=>{setTab('Kasir');setQuery('');setOpenMenu(null)}}><ShoppingCart size={17}/> Mulai transaksi</button></section>
+<div className="nf-stats">{[['Omzet hari ini',money(revenue),TrendingUp],['Transaksi hari ini',todaySales.length,ShoppingCart],['Laba hari ini',money(profit),Activity],['Produk terdaftar',products.length,PackageCheck]].map(([label,value,Icon]:any,i)=><div className="nf-stat" key={String(label)}><div className="nf-stat-top"><span>{label}</span><i className={"nf-stat-icon nf-stat-icon-"+i}><Icon size={18}/></i></div><strong>{value}</strong></div>)}</div>
+<section className="nf-panel"><div className="nf-panel-head"><h3><AlertTriangle size={17}/> Stok perlu dicek</h3><span className="nf-section-count">{products.filter(p=>p.stock<=p.minStock).length}</span></div><div className="nf-visual-stock-grid">{products.filter(p=>p.stock<=p.minStock).slice(0,8).map(p=><div className="nf-visual-stock-card" key={p.code}><span className="nf-visual-product-icon">{categoryAsset(p.category)?<img src={categoryAsset(p.category)} alt="" loading="lazy"/>:<Pill size={19}/>}</span><span className="nf-visual-stock-copy"><b>{p.name}</b><small>{p.code}</small></span><strong>{p.stock}<small> {p.unit}</small></strong></div>)}</div>{!products.some(p=>p.stock<=p.minStock)&&<div className="nf-visual-empty"><PackageCheck size={30}/><b>Stok aman</b><small>Tidak ada produk di bawah batas minimum.</small></div>}</section>
+<section className="nf-panel nf-dashboard-trend"><div className="nf-panel-head"><h3><TrendingUp size={17}/> Aktivitas penjualan 7 hari</h3><span className="nf-section-count">{sales.filter(x=>Date.now()-new Date(x.createdAt).getTime()<7*86400000).length} transaksi</span></div><div className="nf-trend-visual">{Array.from({length:7},(_,i)=>{const day=new Date();day.setHours(0,0,0,0);day.setDate(day.getDate()-(6-i));const key=localDate(day);const daySales=sales.filter(x=>localDate(new Date(x.createdAt))===key);const amount=daySales.reduce((a,x)=>a+x.total,0);const peak=Math.max(1,...Array.from({length:7},(_,j)=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-(6-j));return sales.filter(x=>localDate(new Date(x.createdAt))===localDate(d)).reduce((a,x)=>a+x.total,0)}));return <div className="nf-trend-day" key={key} title={new Intl.DateTimeFormat('id-ID',{dateStyle:'full'}).format(day)+' · '+daySales.length+' transaksi · '+money(amount)}><div className="nf-trend-track"><span style={{height:Math.max(4,amount/peak*100)+'%'}}/></div><b>{amount?money(amount):'—'}</b><small>{['Min','Sen','Sel','Rab','Kam','Jum','Sab'][day.getDay()]}</small></div>})}</div></section></>}{tab==='Kasir'&&<><section className="nf-feature-hero nf-feature-hero-cashier"><div className="nf-feature-hero-copy"><span className="nf-hero-eyebrow"><ShoppingCart size={13}/> POINT OF SALE</span><h2>Transaksi cepat,<br/><em>layanan tetap hangat.</em></h2><p>Pilih produk, susun keranjang, lalu selesaikan pembayaran dalam satu alur.</p><div className="nf-feature-metrics"><span><b>{todaySales.length}</b><small>Transaksi hari ini</small></span><span><b>{money(revenue)}</b><small>Omzet hari ini</small></span><span><b>{cart.length}</b><small>Item di keranjang</small></span></div></div><div className="nf-feature-visual"><div className="nf-feature-device nf-cashier-device"><div className="nf-device-top"><span>NAUFAL POS</span><span className="nf-device-live">● READY</span></div><div className="nf-cashier-preview-total"><small>TOTAL KERANJANG</small><b>{money(cart.reduce((n,x)=>n+x.qty*x.p.sellPrice,0))}</b></div><div className="nf-cashier-preview-items">{cart.slice(0,3).map(x=><div key={x.p.code}><span>{x.p.name}</span><b>{x.qty} × {money(x.p.sellPrice)}</b></div>)}{!cart.length&&<div><span>Keranjang siap digunakan</span><b><ShoppingBag size={15}/></b></div>}</div><div className="nf-cashier-preview-pay"><Wallet size={15}/> Pembayaran</div></div><div className="nf-feature-float nf-feature-float-a"><ScanLine size={16}/><span>Barcode ready</span></div><div className="nf-feature-float nf-feature-float-b"><ShieldCheck size={16}/><span>Data tersimpan lokal</span></div></div></section><div className="nf-grid-two"><section className="nf-panel"><div className="nf-panel-head"><h3><ShoppingBag size={17}/> Produk</h3><UiButton className="nf-soft-btn" aria-label="Scan barcode" onClick={()=>void startScan()}><ScanLine size={17}/></UiButton></div><UiInput className="nf-search" placeholder="Cari nama, kode, barcode..." value={query} onChange={e=>setQuery(e.target.value)}/><div className="nf-product-visual-grid">{filtered.slice(0,40).map(p=><button className="nf-product-pick" key={p.code} disabled={busy} onClick={()=>add(p)}><span className="nf-product-card-icon">{categoryAsset(p.category)?<img src={categoryAsset(p.category)} alt="" loading="lazy"/>:<Pill size={21}/>}</span><span className="nf-product-card-copy"><b>{p.name}</b><small>{p.code}, Stok {p.stock} {p.unit}</small><strong>{money(p.sellPrice)}</strong></span><span className="nf-product-add-icon"><ShoppingCart size={16}/></span></button>)}</div>{!filtered.length&&<p className="nf-empty-state">Produk tidak ditemukan.</p>}{filtered.length>40&&<p className="nf-empty-state">Menampilkan 40 produk pertama. Persempit pencarian untuk hasil lainnya.</p>}</section><section className="nf-panel"><h3><ShoppingCart size={17}/> Keranjang <span className="nf-section-count">{cart.length}</span></h3>{!cart.length&&<p className="nf-empty-state">Keranjang masih kosong. Pilih produk untuk memulai transaksi.</p>}{cart.map(x=><div className="nf-cart-row" key={x.p.code}><div className="nf-cart-info"><b>{x.p.name}</b><small>{money(x.p.sellPrice)} / {x.p.unit}</small></div><div className="nf-qty-control"><button aria-label={'Kurangi '+x.p.name} disabled={busy} onClick={()=>setCart(c=>c.map(y=>y.p.code===x.p.code?{...y,qty:Math.max(0,y.qty-1)}:y).filter(y=>y.qty>0))}>−</button><b>{x.qty}</b><button aria-label={'Tambah '+x.p.name} disabled={busy} onClick={()=>add(x.p)}>+</button></div><strong>{money(x.qty*x.p.sellPrice)}</strong></div>)}<h2>{money(cart.reduce((a,x)=>a+x.qty*x.p.sellPrice,0))}</h2><button className="nf-primary nf-full nf-checkout-btn" disabled={!cart.length||busy} onClick={()=>void checkout()}><ShoppingCart size={17}/>{busy?'Memproses…':'Bayar sekarang'}</button></section></div></>}
+ {(tab==='Cek Harga'||tab==='Barang')&&<>{tab==='Barang'&&<section className="nf-feature-hero nf-feature-hero-catalog"><div className="nf-feature-hero-copy"><span className="nf-hero-eyebrow"><Package size={13}/> PRODUCT CATALOG</span><h2>Seluruh produk,<br/><em>tertata dan terpantau.</em></h2><p>Master barang dengan pencarian cepat, barcode, harga, dan status stok.</p><div className="nf-feature-metrics"><span><b>{products.length.toLocaleString('id-ID')}</b><small>Produk terdaftar</small></span><span><b>{products.filter(p=>p.stock<=p.minStock).length}</b><small>Perlu restok</small></span><span><b>{products.filter(p=>p.barcode).length}</b><small>Dengan barcode</small></span></div></div><div className="nf-feature-visual"><div className="nf-catalog-orbit"><div className="nf-catalog-product-card"><img src="/assets/category-capsules.svg" alt=""/><div><b>Produk apotek</b><small>Katalog terorganisir</small></div><PackageCheck size={19}/></div><div className="nf-catalog-product-card"><img src="/assets/category-tablets.svg" alt=""/><div><b>Harga & stok</b><small>Informasi terpusat</small></div><Boxes size={19}/></div><div className="nf-catalog-orbit-core"><Pill size={29}/><b>{products.length}</b><small>ITEM</small></div></div></div></section>}<section className="nf-panel"><div className="nf-panel-head"><h3>{tab==='Barang'?'Master barang':'Pencarian harga produk'}</h3><div className="nf-panel-actions">{tab==='Barang'&&<><button type="button" className="nf-primary" disabled={busy} onClick={()=>openProductForm()}><Plus size={16}/> Tambah barang</button><label className="nf-soft-btn nf-upload"><Upload size={16}/> Impor CSV<input type="file" accept=".csv,text/csv" disabled={busy} onChange={e=>{const file=e.target.files?.[0];e.currentTarget.value='';if(file)void importCSV(file)}}/></label></>}</div></div><div className="nf-catalog-summary"><div><PackageCheck size={20}/><b>{filtered.length}</b><small>Produk ditemukan</small></div><div><Boxes size={20}/><b>{filtered.reduce((n,p)=>n+p.stock,0).toLocaleString('id-ID')}</b><small>Total unit stok</small></div><div><AlertTriangle size={20}/><b>{filtered.filter(p=>p.stock<=p.minStock).length}</b><small>Perlu restok</small></div></div><div className="nf-search-with-scan"><UiInput className="nf-search" placeholder="Cari nama, kode, atau barcode..." value={query} onChange={e=>setQuery(e.target.value)}/><UiButton className="nf-soft-btn nf-scan-search-btn" aria-label="Buka pemindai barcode" onClick={()=>void startScan(tab!=="Cek Harga")}><Camera size={18}/></UiButton></div><div className="nf-master-grid">{filtered.map(p=><article className="nf-master-card" key={p.code}><div className="nf-master-card-top"><span className="nf-master-product-icon">{categoryAsset(p.category)?<img src={categoryAsset(p.category)} alt="" loading="lazy"/>:<Pill size={22}/>}</span><span className={'nf-stock-status '+(p.stock<=p.minStock?'nf-stock-low':'nf-stock-ok')}>{p.stock<=p.minStock?'Stok menipis':'Stok tersedia'}</span></div><div className="nf-master-card-name"><b>{p.name}</b><small>{p.code}{p.barcode?', Barcode '+p.barcode:''}</small></div><div className="nf-master-card-data"><span><small>Stok</small><b>{p.stock.toLocaleString('id-ID')} {p.unit}</b></span><span><small>Harga beli</small><b>{money(p.buyPrice)}</b></span><span><small>Harga jual</small><b>{money(p.sellPrice)}</b></span></div>{tab==='Barang'&&<div className="nf-master-card-actions"><button type="button" className="nf-soft-btn" aria-label={'Edit '+p.name} title="Edit barang" disabled={busy} onClick={()=>openProductForm(p)}><Pencil size={15}/> Edit</button><button type="button" className="nf-soft-btn nf-danger-btn" aria-label={'Hapus '+p.name} title="Hapus barang" disabled={busy} onClick={()=>void deleteProduct(p)}><Trash2 size={15}/> Hapus</button></div>}</article>)}{!filtered.length&&<div className="nf-visual-empty"><img className="nf-empty-illustration" src="/assets/empty-products.svg" alt="" loading="lazy"/><b>Produk tidak ditemukan</b><small>Coba kata kunci, kode item, atau barcode lain.</small></div>}</div></section></>}
+ {(tab==='Barang Masuk'||tab==='Barang Keluar')&&(()=>{
+  const kind=tab==='Barang Masuk'?'MASUK':'KELUAR';
+  const selected=products.find(p=>p.code===query.trim()||p.barcode===query.trim());
+  const history=moves.filter(m=>m.type===kind).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+  const movementQty=history.reduce((n,m)=>n+Math.abs(m.qty),0),movementValue=history.reduce((n,m)=>n+Math.abs(m.qty)*m.unitCost,0);
+  return <><section className={'nf-feature-hero '+(kind==='MASUK'?'nf-feature-hero-incoming':'nf-feature-hero-outgoing')}><div className="nf-feature-hero-copy"><span className="nf-hero-eyebrow">{kind==='MASUK'?<ArrowDownToLine size={13}/>:<ArrowUpFromLine size={13}/>} INVENTORY FLOW</span><h2>{kind==='MASUK'?'Stok masuk,':'Stok keluar,'}<br/><em>{kind==='MASUK'?'kontrol pasokan.':'mutasi tercatat.'}</em></h2><p>{kind==='MASUK'?'Catat penerimaan barang dan pantau nilai persediaan yang bertambah.':'Catat barang keluar dengan jumlah dan harga beli untuk jejak persediaan yang jelas.'}</p><div className="nf-feature-metrics"><span><b>{history.length}</b><small>Catatan mutasi</small></span><span><b>{movementQty.toLocaleString('id-ID')}</b><small>Total unit</small></span><span><b>{money(movementValue)}</b><small>Nilai mutasi</small></span></div></div><div className="nf-feature-visual"><div className="nf-inventory-visual"><div className="nf-inventory-stack"><span/><span/><span/><span/></div><div className="nf-inventory-flow-icon">{kind==='MASUK'?<ArrowDownToLine size={29}/>:<ArrowUpFromLine size={29}/>}</div><div className="nf-inventory-flow-label"><b>{kind==='MASUK'?'PENERIMAAN':'PENGELUARAN'}</b><small>INVENTORY TRACKING</small></div><div className="nf-inventory-mini"><Boxes size={17}/><b>{products.length}</b><small>SKU aktif</small></div></div></div></section><section className="nf-panel">
+   <div className="nf-panel-head nf-movement-page-head"><div><span className="nf-screen-context">Persediaan apotek</span><h3>{tab}</h3></div><span className="nf-section-count">{products.length.toLocaleString('id-ID')} produk</span></div>
+   <div className="nf-movement-picker-head"><div><b>Pilih produk</b><small>Cari berdasarkan nama, kode item, atau barcode.</small></div><span className="nf-movement-picker-count">{filtered.length} ditemukan</span></div>
+   <div className="nf-search-with-scan"><UiInput className="nf-search" placeholder="Cari nama / kode / barcode…" value={query} onChange={e=>setQuery(e.target.value)}/><UiButton className="nf-soft-btn nf-scan-search-btn" aria-label="Scan barcode produk" onClick={()=>void startScan()}><Camera size={18}/></UiButton></div>
+   <div className="nf-movement-product-list" role="group" aria-label="Daftar produk untuk mutasi">
+    {filtered.map(p=><button type="button" key={p.code} className={'nf-movement-product-option '+(selected?.code===p.code?'nf-selected':'')} onClick={()=>setQuery(p.code)}>
+     <span className="nf-movement-product-icon">{categoryAsset(p.category)?<img src={categoryAsset(p.category)} alt="" loading="lazy"/>:<Pill size={19}/>}</span><span className="nf-movement-option-copy"><b>{p.name}</b><small>{p.code}{p.barcode?', '+p.barcode:''}, {p.category||'Umum'}</small></span><span className="nf-movement-option-stock"><b>{p.stock.toLocaleString('id-ID')}</b><small>{p.unit}</small></span><span className="nf-movement-option-price">{money(p.buyPrice)}</span>
+    </button>)}
+    {!filtered.length&&<div className="nf-movement-list-empty"><img className="nf-empty-illustration" src="/assets/empty-products.svg" alt="" loading="lazy"/><b>Produk tidak ditemukan</b><small>Periksa kata kunci atau barcode yang dimasukkan.</small></div>}
+   </div>
+   {selected&&<div className="nf-movement-selected-card"><span className="nf-movement-product-icon">{categoryAsset(selected.category)?<img src={categoryAsset(selected.category)} alt="" loading="lazy"/>:<Pill size={22}/>}</span><div><small>Produk dipilih</small><b>{selected.name}</b><span>{selected.code}, Stok {selected.stock} {selected.unit}, Harga beli {money(selected.buyPrice)}</span></div><ShieldCheck size={20}/></div>}
+   <button type="button" className="nf-primary nf-movement-action" disabled={!selected||busy} onClick={()=>{setStockQty('');setStockDialog(kind)}}>{kind==='MASUK'?<ArrowDownToLine size={17}/>:<ArrowUpFromLine size={17}/>} Catat barang {kind==='MASUK'?'masuk':'keluar'}</button>
+   <div className="nf-movement-history-head"><div><h3>Riwayat {kind==='MASUK'?'barang masuk':'barang keluar'}</h3><small>Seluruh catatan tersimpan</small></div><span className="nf-section-count">{history.length.toLocaleString('id-ID')} catatan</span></div>
+   <div className="nf-movement-history-grid">{history.map(m=><div className="nf-movement-history-card" key={m.id??m.createdAt+m.code+m.qty}><span className={'nf-movement-history-icon '+(m.type==='MASUK'?'nf-is-in':'nf-is-out')}>{m.type==='MASUK'?<ArrowDownToLine size={17}/>:<ArrowUpFromLine size={17}/>}</span><span><b>{m.name}</b><small>{pdfDate(m.createdAt)}, {m.code}</small><small>{m.note||'Mutasi stok'}, {money(m.unitCost)} / unit</small></span><strong>{Math.abs(m.qty).toLocaleString('id-ID')} <small>{products.find(p=>p.code===m.code)?.unit||'unit'}</small></strong></div>)}
+    {!history.length&&<div className="nf-movement-list-empty"><ClipboardList size={25}/><b>Belum ada riwayat</b><small>Catatan mutasi akan muncul di sini setelah disimpan.</small></div>}
+   </div>
+  </section></>;
+})()}
+ {tab==='Laporan'&&(()=>{
+  const range={from:reportFrom,to:reportTo};
+  const reportSales=filterSalesByRange(sales,range,localDate);
+  const incoming=filterMovementsByRange(moves,'MASUK',range,localDate);
+  const outgoing=filterMovementsByRange(moves,'KELUAR',range,localDate);
+  const total=reportSales.reduce((a,s)=>a+s.total,0);
+  const inventorySummary=summarizeInventoryMovements;
+  const incomingTotals=inventorySummary(incoming),outgoingTotals=inventorySummary(outgoing);
+  const inventoryTable=(list:Movement[],emptyLabel:string)=><div className="nf-table-wrap"><table><thead><tr><th>Nama barang</th><th>Qty</th><th>Harga beli</th><th>Total</th></tr></thead><tbody>{list.map((m,i)=><tr key={m.id??m.createdAt+m.code+i}><td><b>{m.name}</b><small className="nf-table-subtext">{pdfDate(m.createdAt)}</small></td><td>{Math.abs(m.qty)}</td><td>{money(m.unitCost)}</td><td><b>{money(Math.abs(m.qty)*m.unitCost)}</b></td></tr>)}{!list.length&&<tr><td colSpan={4} className="nf-empty-state">{emptyLabel}</td></tr>}</tbody><tfoot><tr><th colSpan={3}>Total keseluruhan</th><th>{money(inventorySummary(list).value)}</th></tr></tfoot></table></div>;
+  return <>
+   <section className="nf-feature-hero nf-feature-hero-reports"><div className="nf-feature-hero-copy"><span className="nf-hero-eyebrow"><BarChart3 size={13}/> BUSINESS INTELLIGENCE</span><h2>Angka operasional,<br/><em>jadi keputusan cerdas.</em></h2><p>Ringkas penjualan, laba, dan pergerakan stok dalam periode yang kamu pilih.</p><div className="nf-feature-metrics"><span><b>{reportSales.length}</b><small>Transaksi</small></span><span><b>{money(total)}</b><small>Omzet</small></span><span><b>{money(incomingTotals.value+outgoingTotals.value)}</b><small>Nilai mutasi</small></span></div></div><div className="nf-feature-visual"><div className="nf-report-visual"><div className="nf-report-visual-head"><span>PERFORMA USAHA</span><span className="nf-device-live">● LIVE DATA</span></div><div className="nf-report-bars">{Array.from({length:7},(_,i)=>{const day=new Date();day.setHours(0,0,0,0);day.setDate(day.getDate()-(6-i));const amount=sales.filter(x=>localDate(new Date(x.createdAt))===localDate(day)).reduce((n,x)=>n+x.total,0);const peak=Math.max(1,...sales.map(x=>x.total));return <i key={i} style={{height:Math.max(8,Math.min(100,amount/peak*100))+'%'}}/>})}</div><div className="nf-report-visual-foot"><span><TrendingUp size={14}/> Penjualan 7 hari</span><b>{money(revenue)}</b></div></div></div></section>
+   <section className="nf-panel">
+    <div className="nf-panel-head"><h3>Riwayat penjualan</h3><b>Omzet: {money(total)}</b></div>
+    <div className="nf-report-tools"><label>Dari tanggal<input type="date" value={reportFrom} onChange={e=>setReportFrom(e.target.value)}/></label><label>Sampai tanggal<input type="date" value={reportTo} onChange={e=>setReportTo(e.target.value)}/></label><button className="nf-primary" disabled={pdfBusy||!reportSales.length||Boolean(reportFrom&&reportTo&&reportFrom>reportTo)} onClick={()=>void downloadReportPDF(reportSales)}><Download size={16}/> {pdfBusy?'Membuat PDF…':'Unduh laporan PDF'}</button></div>
+    <div className="nf-report-kpi-grid"><div className="nf-report-kpi"><span><ShoppingCart size={17}/></span><small>Transaksi</small><b>{reportSales.length}</b></div><div className="nf-report-kpi"><span><TrendingUp size={17}/></span><small>Omzet</small><b>{money(total)}</b></div><div className="nf-report-kpi"><span><Activity size={17}/></span><small>Estimasi laba</small><b>{money(reportSales.reduce((a,s)=>a+s.items.reduce((b,i)=>b+(i.price-i.cost)*i.qty,0),0))}</b></div></div>
+    <div className="nf-sales-report-list">{reportSales.map((sale,i)=><article className="nf-sales-report-card" key={sale.id??sale.createdAt+i}>
+     <div className="nf-sales-report-top"><div><span className="nf-sales-report-index">Transaksi {String(reportSales.length-i).padStart(3,'0')}</span><b>{pdfDate(sale.createdAt)}</b><small>{sale.items.length} jenis barang, {sale.items.reduce((n,item)=>n+item.qty,0)} unit</small></div><button className="nf-soft-btn nf-sales-receipt-btn" disabled={pdfBusy} onClick={()=>void downloadReceiptPDF(sale)}><Download size={15}/> Struk PDF</button></div>
+     <div className="nf-sales-report-items">{sale.items.map((item,j)=><div className="nf-sales-report-item" key={item.code+'-'+j}><span><b>{item.name}</b><small>{item.code}, {item.qty} × {money(item.price)}</small></span><strong>{money(item.qty*item.price)}</strong></div>)}</div>
+     <div className="nf-sales-report-total"><span>Total transaksi</span><b>{money(sale.total)}</b></div>
+    </article>)}
+    {!reportSales.length&&<div className="nf-sales-report-empty"><img className="nf-empty-illustration" src="/assets/empty-reports.svg" alt="" loading="lazy"/><b>Belum ada penjualan pada periode ini</b><small>Ubah rentang tanggal untuk melihat transaksi lainnya.</small></div>}
+   </div>
+   </section>
+   <section className="nf-panel">
+    <div className="nf-panel-head"><h3>Laporan barang masuk</h3><b>Total: {money(incomingTotals.value)}</b></div>
+    <div className="nf-report-kpi-grid nf-report-kpi-compact"><div className="nf-report-kpi"><span><ArrowDownToLine size={17}/></span><small>Catatan masuk</small><b>{incoming.length}</b></div><div className="nf-report-kpi"><span><Boxes size={17}/></span><small>Jumlah unit</small><b>{incomingTotals.qty.toLocaleString('id-ID')}</b></div><div className="nf-report-kpi"><span><Wallet size={17}/></span><small>Nilai pembelian</small><b>{money(incomingTotals.value)}</b></div></div>
+    <div className="nf-report-tools"><button className="nf-primary" disabled={pdfBusy||!incoming.length||Boolean(reportFrom&&reportTo&&reportFrom>reportTo)} onClick={()=>void downloadInventoryPDF(incoming,'MASUK')}><Download size={16}/> {pdfBusy?'Membuat PDF…':'Unduh laporan barang masuk'}</button></div>
+    {inventoryTable(incoming,'Belum ada barang masuk pada periode ini.')}
+   </section>
+   <section className="nf-panel">
+    <div className="nf-panel-head"><h3>Laporan barang keluar</h3><b>Total: {money(outgoingTotals.value)}</b></div>
+    <div className="nf-report-kpi-grid nf-report-kpi-compact"><div className="nf-report-kpi"><span><ArrowUpFromLine size={17}/></span><small>Catatan keluar</small><b>{outgoing.length}</b></div><div className="nf-report-kpi"><span><Boxes size={17}/></span><small>Jumlah unit</small><b>{outgoingTotals.qty.toLocaleString('id-ID')}</b></div><div className="nf-report-kpi"><span><Wallet size={17}/></span><small>Nilai barang</small><b>{money(outgoingTotals.value)}</b></div></div>
+    <div className="nf-report-tools"><button className="nf-primary" disabled={pdfBusy||!outgoing.length||Boolean(reportFrom&&reportTo&&reportFrom>reportTo)} onClick={()=>void downloadInventoryPDF(outgoing,'KELUAR')}><Download size={16}/> {pdfBusy?'Membuat PDF…':'Unduh laporan barang keluar'}</button></div>
+    {inventoryTable(outgoing,'Belum ada barang keluar pada periode ini.')}
+   </section>
+  </>;
+})()}
+ {tab==='Pengaturan'&&<div className="nf-settings-layout">
+  <section className="nf-panel nf-settings-panel">
+   <div className="nf-settings-heading"><span className="nf-settings-icon"><Sun size={20}/></span><div><h3>Tampilan aplikasi</h3><p>Pilih tema yang nyaman digunakan. Pengaturan tersimpan otomatis di perangkat ini.</p></div></div>
+   <div className="nf-theme-picker" role="group" aria-label="Pilih tema tampilan">
+    <button type="button" className={'nf-theme-option '+(theme==='light'?'nf-selected':'')} aria-pressed={theme==='light'} onClick={()=>setTheme('light')}><span className="nf-theme-option-icon"><Sun size={20}/></span><span className="nf-theme-option-copy"><b>Light mode</b><small>Ivory, sage, emerald</small></span>{theme==='light'&&<ShieldCheck className="nf-theme-check" size={19}/>}</button>
+    <button type="button" className={'nf-theme-option '+(theme==='dark'?'nf-selected':'')} aria-pressed={theme==='dark'} onClick={()=>setTheme('dark')}><span className="nf-theme-option-icon"><Moon size={20}/></span><span className="nf-theme-option-copy"><b>Dark mode</b><small>Graphite, teal, mint</small></span>{theme==='dark'&&<ShieldCheck className="nf-theme-check" size={19}/>}</button>
    </div>
   </section>
-  <section className="panel settings-panel">
-   <div className="settings-heading"><span className="settings-icon"><Cloud size={20}/></span><div><h3>Sinkronisasi database GitHub</h3><p>Master produk tersinkron satu arah dari GitHub ke aplikasi.</p></div></div>
-   <div className="sync-status-card"><span className="sync-status-icon"><Cloud size={24}/></span><div className="sync-status-copy"><b>{syncState==='syncing'?'Sedang mengambil CSV dari GitHub…':syncState==='online'?'Terhubung · master produk tersinkron':syncState==='error'?'Sinkronisasi gagal · data lokal tetap aman':'Offline · menggunakan data lokal'}</b><small>{lastSync?'Sinkron terakhir: '+new Date(lastSync).toLocaleString('id-ID'):'Belum ada sinkronisasi berhasil pada sesi ini.'}</small><p>Otomatis saat aplikasi dibuka, koneksi kembali aktif, dan setiap 15 menit. Tidak memerlukan token.</p></div></div>
-   <button className="primary settings-primary" disabled={syncing||!navigator.onLine} onClick={()=>void syncCloudCSV(true)}><RefreshCw size={17}/> {syncing?'Menyinkronkan…':'Sinkronkan sekarang'}</button>
+  <section className="nf-panel nf-settings-panel">
+   <div className="nf-settings-heading"><span className="nf-settings-icon"><Cloud size={20}/></span><div><h3>Sinkronisasi database GitHub</h3><p>Master produk tersinkron satu arah dari GitHub ke aplikasi.</p></div></div>
+   <div className="nf-sync-status-card"><span className="nf-sync-status-icon"><Cloud size={24}/></span><div className="nf-sync-status-copy"><b>{syncState==='syncing'?'Sedang mengambil CSV dari GitHub…':syncState==='online'?'Terhubung, master produk tersinkron':syncState==='error'?'Sinkronisasi gagal, data lokal tetap aman':'Offline, menggunakan data lokal'}</b><small>{lastSync?'Sinkron terakhir: '+new Date(lastSync).toLocaleString('id-ID'):'Belum ada sinkronisasi berhasil pada sesi ini.'}</small><p>Otomatis saat aplikasi dibuka, koneksi kembali aktif, dan setiap 15 menit. Tidak memerlukan token.</p></div></div>
+   <button className="nf-primary nf-settings-primary" disabled={syncing||!navigator.onLine} onClick={()=>void syncCloudCSV(true)}><RefreshCw size={17}/> {syncing?'Menyinkronkan…':'Sinkronkan sekarang'}</button>
   </section>
-  <section className="panel settings-panel">
-   <div className="settings-heading"><span className="settings-icon"><ShieldCheck size={20}/></span><div><h3>Data lokal</h3><p>Cadangkan dan kelola data pada perangkat ini.</p></div></div>
-   <div className="settings-actions">
-    <button className="soft-btn" disabled={busy} onClick={()=>void backupAll()}><Download size={17}/> Backup lengkap (JSON)</button>
-    <label className="soft-btn upload"><FileUp size={17}/> Pulihkan backup<input type="file" accept=".json,application/json" disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(file)void restoreAll(file);e.currentTarget.value=''}}/></label>
-    <button className="soft-btn" disabled={busy} onClick={exportCSV}><Download size={17}/> Ekspor master produk CSV</button>
+  <section className="nf-panel nf-settings-panel">
+   <div className="nf-settings-heading"><span className="nf-settings-icon"><ShieldCheck size={20}/></span><div><h3>Data lokal</h3><p>Cadangkan dan kelola data pada perangkat ini.</p></div></div>
+   <div className="nf-settings-actions">
+    <button className="nf-soft-btn" disabled={busy} onClick={()=>void backupAll()}><Download size={17}/> Backup lengkap (JSON)</button>
+    <label className="nf-soft-btn nf-upload"><FileUp size={17}/> Pulihkan backup<input type="file" accept=".json,application/json" disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(file)void restoreAll(file);e.currentTarget.value=''}}/></label>
+    <button className="nf-soft-btn" disabled={busy} onClick={exportCSV}><Download size={17}/> Ekspor master produk CSV</button>
    </div>
-   {busy&&<p className="settings-helper">Memproses data, jangan tutup aplikasi…</p>}
+   {busy&&<p className="nf-settings-helper">Memproses data, jangan tutup aplikasi…</p>}
   </section>
  </div>}
- </main>{stockDialog&&<UiModal label={stockDialog==='MASUK'?'Barang masuk':'Barang keluar'} onClose={()=>setStockDialog(null)}><div className="stock-dialog"><h3>{stockDialog==='MASUK'?'Catat barang masuk':'Catat barang keluar'}</h3><p>{products.find(p=>p.code===query.trim()||p.barcode===query.trim())?.name}</p><UiInput autoFocus type="number" min="1" step="1" inputMode="numeric" placeholder="Jumlah unit" value={stockQty} onChange={e=>setStockQty(e.target.value)}/><UiButton variant="primary" className="full" disabled={busy||!Number.isSafeInteger(Number(stockQty))||Number(stockQty)<1} onClick={()=>void moveStock(stockDialog)}>Simpan mutasi</UiButton></div></UiModal>}{scan&&<UiModal label="Pemindai barcode" onClose={()=>void stopScan()}><div className="scan-card-content"><div id="barcode-reader"/><UiButton className="soft-btn full" onClick={()=>void stopScan()}>Tutup pemindai</UiButton></div></UiModal>}</div>
+ </main>{productDialog&&<UiModal label={editingProduct?'Edit master barang':'Tambah master barang'} onClose={()=>{if(!busy)setProductDialog(false)}}><form className="nf-product-form" onSubmit={e=>{e.preventDefault();void saveProduct()}}><div className="nf-product-form-heading"><span className="nf-settings-icon"><PackageCheck size={21}/></span><div><h3>{editingProduct?'Edit barang':'Tambah barang baru'}</h3><small>Lengkapi data master produk apotek.</small></div></div><div className="nf-product-form-grid">
+<label>Kode item *<UiInput required value={productForm.code} onChange={e=>setProductForm(v=>({...v,code:e.target.value}))} placeholder="Contoh: OBAT001"/></label>
+<label>Barcode<UiInput value={productForm.barcode} onChange={e=>setProductForm(v=>({...v,barcode:e.target.value}))} placeholder="Nomor barcode"/></label>
+<label className="nf-product-form-wide">Nama barang *<UiInput required value={productForm.name} onChange={e=>setProductForm(v=>({...v,name:e.target.value}))} placeholder="Nama produk"/></label>
+<label>Kategori<UiInput value={productForm.category} onChange={e=>setProductForm(v=>({...v,category:e.target.value}))} placeholder="Obat / Vitamin"/></label>
+<label>Merek<UiInput value={productForm.brand} onChange={e=>setProductForm(v=>({...v,brand:e.target.value}))} placeholder="Merek"/></label>
+<label>Stok<UiInput type="number" min="0" step="1" required value={productForm.stock} onChange={e=>setProductForm(v=>({...v,stock:e.target.value}))}/></label>
+<label>Satuan<UiInput value={productForm.unit} onChange={e=>setProductForm(v=>({...v,unit:e.target.value}))} placeholder="pcs / strip / box"/></label>
+<label>Harga beli<UiInput type="number" min="0" step="1" required value={productForm.buyPrice} onChange={e=>setProductForm(v=>({...v,buyPrice:e.target.value}))}/></label>
+<label>Harga jual<UiInput type="number" min="0" step="1" required value={productForm.sellPrice} onChange={e=>setProductForm(v=>({...v,sellPrice:e.target.value}))}/></label>
+<label>Stok minimum<UiInput type="number" min="0" step="1" value={productForm.minStock} onChange={e=>setProductForm(v=>({...v,minStock:e.target.value}))}/></label>
+<label>Rak<UiInput value={productForm.shelf} onChange={e=>setProductForm(v=>({...v,shelf:e.target.value}))} placeholder="Lokasi rak"/></label>
+<label className="nf-product-form-wide">Supplier<UiInput value={productForm.supplier} onChange={e=>setProductForm(v=>({...v,supplier:e.target.value}))} placeholder="Nama pemasok"/></label>
+</div><div className="nf-product-form-actions"><UiButton type="button" onClick={()=>setProductDialog(false)} disabled={busy}>Batal</UiButton><UiButton type="submit" variant="primary" disabled={busy}>{busy?'Menyimpan…':editingProduct?'Simpan perubahan':'Tambah barang'}</UiButton></div></form></UiModal>}{stockDialog&&<UiModal label={stockDialog==='MASUK'?'Barang masuk':'Barang keluar'} onClose={()=>setStockDialog(null)}><div className="nf-stock-dialog"><h3>{stockDialog==='MASUK'?'Catat barang masuk':'Catat barang keluar'}</h3><p>{products.find(p=>p.code===query.trim()||p.barcode===query.trim())?.name}</p><UiInput autoFocus type="number" min="1" step="1" inputMode="numeric" placeholder="Jumlah unit" value={stockQty} onChange={e=>setStockQty(e.target.value)}/><UiButton variant="primary" className="nf-full" disabled={busy||!Number.isSafeInteger(Number(stockQty))||Number(stockQty)<1} onClick={()=>void moveStock(stockDialog)}>Simpan mutasi</UiButton></div></UiModal>}{scan&&<UiModal label="Pemindai barcode" onClose={()=>void stopScan()}><div className="nf-scan-card-content"><div id="barcode-reader"/><UiButton className="nf-soft-btn nf-full" onClick={()=>void stopScan()}>Tutup pemindai</UiButton></div></UiModal>}</div>
 }
