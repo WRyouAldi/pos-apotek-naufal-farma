@@ -1154,3 +1154,21 @@ html[data-theme="dark"] .nf-feature-hero-cashier .nf-feature-visual,html[data-th
  html[data-theme="dark"] .nf-dashboard-welcome{background-image:linear-gradient(90deg,rgba(24,43,36,.98) 0%,rgba(24,43,36,.92) 58%,rgba(24,43,36,.58) 100%),url('/assets/pharmacy-hero.svg')}
 }
 @media(prefers-reduced-motion:reduce){.nf-dashboard-welcome,.nf-feature-visual{background-attachment:scroll}}
+
+/* Android bottom navigation: explicit visual order, independent of display:contents quirks. */
+@media(max-width:720px){
+ .nf-app-nav{grid-template-areas:"home product inventory cashier reports settings"!important;grid-template-columns:repeat(6,minmax(0,1fr))!important}
+ .nf-app-nav>.nf-nav-home{grid-area:home!important;grid-column:auto!important;grid-row:1!important}
+ .nf-app-nav .nf-nav-product{grid-area:product!important;grid-column:auto!important;grid-row:1!important}
+ .nf-app-nav .nf-nav-inventory{grid-area:inventory!important;grid-column:auto!important;grid-row:1!important}
+ .nf-app-nav>.nf-nav-cashier{grid-area:cashier!important;grid-column:auto!important;grid-row:1!important}
+ .nf-app-nav>.nf-nav-reports{grid-area:reports!important;grid-column:auto!important;grid-row:1!important}
+ .nf-app-nav>.nf-nav-settings{grid-area:settings!important;grid-column:auto!important;grid-row:1!important}
+}
+/* Make the pharmacy artwork a clearly visible illustration, while preserving readable copy. */
+.nf-dashboard-welcome{background-image:linear-gradient(90deg,rgba(232,248,240,.94) 0%,rgba(232,248,240,.80) 42%,rgba(232,248,240,.12) 100%),url('/assets/pharmacy-hero.svg');background-position:center right;background-size:cover}
+html[data-theme="dark"] .nf-dashboard-welcome{background-image:linear-gradient(90deg,rgba(24,43,36,.96) 0%,rgba(24,43,36,.82) 43%,rgba(24,43,36,.18) 100%),url('/assets/pharmacy-hero.svg')}
+@media(max-width:720px){
+ .nf-dashboard-welcome{background-position:68% center;background-image:linear-gradient(90deg,rgba(232,248,240,.91) 0%,rgba(232,248,240,.76) 50%,rgba(232,248,240,.16) 100%),url('/assets/pharmacy-hero.svg')}
+ html[data-theme="dark"] .nf-dashboard-welcome{background-position:68% center;background-image:linear-gradient(90deg,rgba(24,43,36,.95) 0%,rgba(24,43,36,.83) 52%,rgba(24,43,36,.2) 100%),url('/assets/pharmacy-hero.svg')}
+}
