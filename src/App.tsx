@@ -422,12 +422,12 @@ export default function App(){
   const kind=tab==='Barang Masuk'?'MASUK':'KELUAR';
   const selected=products.find(p=>p.code===query.trim()||p.barcode===query.trim());
   const history=moves.filter(m=>m.type===kind).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
-  return <section className="nf-panel ">
+  return <section className="nf-panel">
    <div className="nf-panel-head nf-movement-page-head"><div><span className="nf-screen-context">Persediaan apotek</span><h3>{tab}</h3></div><span className="nf-section-count">{products.length.toLocaleString('id-ID')} produk</span></div>
    <div className="nf-movement-picker-head"><div><b>Pilih produk</b><small>Cari berdasarkan nama, kode item, atau barcode.</small></div><span className="nf-movement-picker-count">{filtered.length} ditemukan</span></div>
    <div className="nf-search-with-scan"><UiInput className="nf-search" placeholder="Cari nama / kode / barcode…" value={query} onChange={e=>setQuery(e.target.value)}/><UiButton className="nf-soft-btn nf-scan-search-btn" aria-label="Scan barcode produk" onClick={()=>void startScan()}><Camera size={18}/></UiButton></div>
    <div className="nf-movement-product-list" role="group" aria-label="Daftar produk untuk mutasi">
-    {filtered.map(p=><button type="button" key={p.code} className={'nf-movement-product-option '+(nf-selected?.code===p.code?'nf-selected':'')} onClick={()=>setQuery(p.code)}>
+    {filtered.map(p=><button type="button" key={p.code} className={'nf-movement-product-option '+(selected?.code===p.code?'nf-selected':'')} onClick={()=>setQuery(p.code)}>
      <span className="nf-movement-product-icon"><Pill size={19}/></span><span className="nf-movement-option-copy"><b>{p.name}</b><small>{p.code}{p.barcode?', '+p.barcode:''}, {p.category||'Umum'}</small></span><span className="nf-movement-option-stock"><b>{p.stock.toLocaleString('id-ID')}</b><small>{p.unit}</small></span><span className="nf-movement-option-price">{money(p.buyPrice)}</span>
     </button>)}
     {!filtered.length&&<div className="nf-movement-list-empty"><Package size={25}/><b>Produk tidak ditemukan</b><small>Periksa kata kunci atau barcode yang dimasukkan.</small></div>}
