@@ -30,4 +30,9 @@ export async function importCatalogProducts(incoming:Product[]):Promise<void>{
  if(!incoming.length)throw new Error('Tidak ada produk valid untuk diimpor.');
  const existing=await db.products.toArray(),byCode=new Map(existing.map(p=>[p.code,p]));
  await db.transaction('rw',db.products,async()=>{for(const p of incoming){const old=byCode.get(p.code);if(old?.id)await db.products.update(old.id,{...p,stock:old.stock,barcode:p.barcode||old.barcode});else await db.products.add(p);}});
+ const overrides=readProductOverrides();
+ for(const p of incoming){const old=byCode.get(p.code);overrides[p.code]={...p,stock:old?.stock??p.stock,barcode:p.barcode||old?.barcode||''};}
+ writeProductOverrides(overrides);
+ const importedCodes=new Set(incoming.map(p=>p.code));
+ writeDeletedProductCodes(readDeletedProductCodes().filter(code=>!importedCodes.has(code)));
 }
