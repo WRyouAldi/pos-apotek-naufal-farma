@@ -526,3 +526,10 @@ html[data-theme="dark"] .nf-stock-low{color:#f5d18b;background:rgba(227,174,82,.
  .nf-master-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
+
+
+/* Visual asset integration — scalable SVG hero art */
+.nf-dashboard-poster-art{display:grid;place-items:center;background:radial-gradient(circle at 50% 48%,color-mix(in srgb,var(--ad-brand) 12%,transparent),transparent 72%)}
+.nf-dashboard-poster-art>img{display:block;width:min(100%,420px);height:100%;min-height:200px;max-height:310px;object-fit:contain;filter:drop-shadow(0 12px 18px rgba(30,92,62,.10))}
+html[data-theme="dark"] .nf-dashboard-poster-art>img{filter:drop-shadow(0 12px 18px rgba(0,0,0,.24))}
+@media(max-width:620px){.nf-dashboard-poster-art>img{max-height:210px}}
