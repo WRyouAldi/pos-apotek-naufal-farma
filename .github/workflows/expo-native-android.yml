@@ -51,6 +51,27 @@ jobs:
       - name: Expo Doctor
         run: npx --yes expo-doctor
 
+      - name: Prepare Android native project
+        run: npx --yes @expo/agent-cli@latest prebuild --platform android --no-install
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build Android debug APK
+        working-directory: native/android
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Upload Android debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: naufal-farma-native-debug-apk
+          path: native/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Save resolved package manifest and lockfile
         uses: actions/upload-artifact@v4
         with:
