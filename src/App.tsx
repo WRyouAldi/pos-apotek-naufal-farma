@@ -234,24 +234,24 @@ export default function App(){
  <span className="nf-top-status">{syncState==='syncing'?'Sync…':syncState==='online'?'Cloud aktif':syncState==='error'?'Sync gagal':'Offline lokal'}</span>
 </nav>
  <div className="nf-app-nav" role="navigation" aria-label="Navigasi utama">
-  <button className={'nf-nav '+(tab==='Dashboard'?'nf-active':'')} onClick={()=>{setTab('Dashboard');setQuery('');setOpenMenu(null)}}><Home/><span>Beranda</span></button>
+  <button className={'nf-nav nf-nav-home '+(tab==='Dashboard'?'nf-active':'')} onClick={()=>{setTab('Dashboard');setQuery('');setOpenMenu(null)}}><Home/><span>Beranda</span></button>
   <div className="nf-nav-item">
-   <button className={'nf-nav '+((tab==='Barang'||tab==='Cek Harga')?'nf-active':'')} aria-haspopup="true" aria-expanded={openMenu==='Produk'} onClick={()=>setOpenMenu(openMenu==='Produk'?null:'Produk')}><Package/><span>Produk</span><ChevronDown className="nf-chevron"/></button>
+   <button className={'nf-nav nf-nav-product '+((tab==='Barang'||tab==='Cek Harga')?'nf-active':'')} aria-haspopup="true" aria-expanded={openMenu==='Produk'} onClick={()=>setOpenMenu(openMenu==='Produk'?null:'Produk')}><Package/><span>Produk</span><ChevronDown className="nf-chevron"/></button>
    {openMenu==='Produk'&&<div className="nf-nav-submenu" role="group" aria-label="Menu Produk">
     <button className={tab==='Barang'?'nf-selected':''} onClick={()=>{setTab('Barang');setQuery('');setOpenMenu(null)}}><Boxes size={16}/> Master Barang</button>
     <button className={tab==='Cek Harga'?'nf-selected':''} onClick={()=>{setTab('Cek Harga');setQuery('');setOpenMenu(null)}}><Search size={16}/> Cek Harga</button>
    </div>}
   </div>
   <div className="nf-nav-item">
-   <button className={'nf-nav '+((tab==='Barang Masuk'||tab==='Barang Keluar')?'nf-active':'')} aria-haspopup="true" aria-expanded={openMenu==='Persediaan'} onClick={()=>setOpenMenu(openMenu==='Persediaan'?null:'Persediaan')}><Boxes/><span>Persediaan</span><ChevronDown className="nf-chevron"/></button>
+   <button className={'nf-nav nf-nav-inventory '+((tab==='Barang Masuk'||tab==='Barang Keluar')?'nf-active':'')} aria-haspopup="true" aria-expanded={openMenu==='Persediaan'} onClick={()=>setOpenMenu(openMenu==='Persediaan'?null:'Persediaan')}><Boxes/><span>Persediaan</span><ChevronDown className="nf-chevron"/></button>
    {openMenu==='Persediaan'&&<div className="nf-nav-submenu" role="group" aria-label="Menu Persediaan">
     <button className={tab==='Barang Masuk'?'nf-selected':''} onClick={()=>{setTab('Barang Masuk');setQuery('');setOpenMenu(null)}}><ArrowDownToLine size={16}/> Barang Masuk</button>
     <button className={tab==='Barang Keluar'?'nf-selected':''} onClick={()=>{setTab('Barang Keluar');setQuery('');setOpenMenu(null)}}><ArrowUpFromLine size={16}/> Barang Keluar</button>
    </div>}
   </div>
-  <button className={'nf-nav '+(tab==='Kasir'?'nf-active':'')} onClick={()=>{setTab('Kasir');setQuery('');setOpenMenu(null)}}><ShoppingCart/><span>Kasir</span></button>
-  <button className={'nf-nav '+(tab==='Laporan'?'nf-active':'')} onClick={()=>{setTab('Laporan');setQuery('');setOpenMenu(null)}}><BarChart3/><span>Laporan</span></button>
-  <button className={'nf-nav '+(tab==='Pengaturan'?'nf-active':'')} onClick={()=>{setTab('Pengaturan');setQuery('');setOpenMenu(null)}}><Settings/><span>Pengaturan</span></button>
+  <button className={'nf-nav nf-nav-cashier '+(tab==='Kasir'?'nf-active':'')} onClick={()=>{setTab('Kasir');setQuery('');setOpenMenu(null)}}><ShoppingCart/><span>Kasir</span></button>
+  <button className={'nf-nav nf-nav-reports '+(tab==='Laporan'?'nf-active':'')} onClick={()=>{setTab('Laporan');setQuery('');setOpenMenu(null)}}><BarChart3/><span>Laporan</span></button>
+  <button className={'nf-nav nf-nav-settings '+(tab==='Pengaturan'?'nf-active':'')} onClick={()=>{setTab('Pengaturan');setQuery('');setOpenMenu(null)}}><Settings/><span>Pengaturan</span></button>
  </div>
  <main className="nf-app-main"><header className="nf-screen-header"><div><span className="nf-screen-context">Naufal Farma / Operasional</span><h1>{tab==='Dashboard'?'Beranda':tab}</h1></div><span className="nf-online">{syncState==='online'?<Cloud size={15}/>:<WifiOff size={15}/>} {syncState==='syncing'?'Sinkronisasi…':syncState==='online'?'Cloud tersinkron':syncState==='error'?'Sync gagal, data lokal':'Mode offline'}</span></header>{notice&&<div className="nf-toast" role="status" aria-live="polite" aria-atomic="true">{notice}</div>}
  {tab==='Dashboard'&&<><section className="nf-dashboard-welcome"><div><span className="nf-hero-eyebrow"><span className="nf-hero-live-dot"/> RINGKASAN OPERASIONAL</span><h2>Selamat datang di Naufal Farma</h2><p>Pantau kondisi apotek dan aktivitas hari ini.</p></div><button type="button" className="nf-dashboard-start" onClick={()=>{setTab('Kasir');setQuery('');setOpenMenu(null)}}><ShoppingCart size={17}/> Mulai transaksi</button></section>
