@@ -99,7 +99,7 @@ export default function App(){
    catch(error){if(scannerRef.current===scanner)scannerRef.current=null;await scanner.stop();const message=error instanceof Error?error.message:String(error),lower=message.toLowerCase();setNotice(lower.includes('permission')||lower.includes('notallowed')||lower.includes('denied')?'Izin kamera ditolak. Izinkan akses Kamera untuk aplikasi POS Apotek di pengaturan Android.':lower.includes('secure')?'Akses kamera tidak tersedia pada konteks aplikasi ini. Perbarui aplikasi Android.':'Pemindai gagal dibuka: '+message);setScan(false)}
   },350)
  }
- useEffect(()=>()=>{if(scanTimerRef.current!==undefined)window.clearTimeout(scanTimerRef.current);const q=scannerRef.current;if(q?.isScanning)void q.stop()},[]);
+ useEffect(()=>()=>{if(scanTimerRef.current!==undefined)window.clearTimeout(scanTimerRef.current);const q=scannerRef.current;if(q)void q.stop()},[]);
  async function backupAll(){
   try{setBusy(true);const payload={format:'naufal-farma-pos-backup',version:1,createdAt:new Date().toISOString(),data:{products:await db.products.toArray(),sales:await db.sales.toArray(),movements:await db.movements.toArray()}};
    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
