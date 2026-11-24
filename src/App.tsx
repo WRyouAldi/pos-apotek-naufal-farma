@@ -152,23 +152,45 @@ export default function App(){
  async function downloadReceiptPDF(sale:Sale){
   setPdfBusy(true);
   try{
-   const doc=new jsPDF({unit:'mm',format:[80,180]});
-   const pageW=80,margin=5;let y=9;
-   doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('APOTEK NAUFAL FARMA',pageW/2,y,{align:'center'});y+=6;
-   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text('STRUK PENJUALAN',pageW/2,y,{align:'center'});y+=6;
-   doc.setFontSize(7);doc.text('No: '+(sale.id??'-'),margin,y);y+=4;doc.text(pdfDate(sale.createdAt),margin,y);y+=4;
-   doc.line(margin,y,pageW-margin,y);y+=5;
-   doc.setFont('helvetica','bold');doc.text('Produk',margin,y);doc.text('Total',pageW-margin,y,{align:'right'});y+=4;
-   doc.setFont('helvetica','normal');
-   for(const item of sale.items){
-    const lines=doc.splitTextToSize(item.name, pageW-2*margin-2);
-    doc.text(lines,margin,y);y+=lines.length*3.5;
-    doc.text(item.qty+' x '+money(item.price),margin+2,y);doc.text(money(item.qty*item.price),pageW-margin,y,{align:'right'});y+=4;
-    if(y>165){doc.addPage([80,180]);y=10}
+   const pageW=80,margin=6,contentW=pageW-margin*2;
+   const rows=sale.items.map(item=>({item,lines:jsPDF.prototype.splitTextToSize?new jsPDF({unit:'mm',format:[80,180]}).splitTextToSize(item.name,contentW):[item.name]}));
+   const itemHeight=rows.reduce((sum,row)=>sum+Math.max(1,row.lines.length)*4+7,0);
+   const receiptHeight=Math.max(118,Math.min(600,82+itemHeight));
+   const doc=new jsPDF({unit:'mm',format:[pageW,receiptHeight]});
+   let y=0;
+   doc.setFillColor(19,105,75);doc.rect(0,0,pageW,31,'F');
+   doc.setFillColor(255,255,255);doc.circle(pageW/2,8,3,'F');
+   doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(12);
+   doc.text('NAUFAL FARMA',pageW/2,17,{align:'center'});
+   doc.setFont('helvetica','normal');doc.setFontSize(7.5);
+   doc.text('APOTEK  •  STRUK PEMBELIAN',pageW/2,23,{align:'center'});
+   y=39;doc.setTextColor(28,57,45);doc.setFont('helvetica','bold');doc.setFontSize(8);
+   doc.text('DETAIL TRANSAKSI',margin,y);y+=5;
+   doc.setFont('helvetica','normal');doc.setFontSize(7);
+   doc.setTextColor(94,115,104);doc.text('Nomor transaksi',margin,y);doc.setTextColor(28,57,45);doc.text(String(sale.id??'-'),pageW-margin,y,{align:'right'});y+=4;
+   doc.setTextColor(94,115,104);doc.text('Tanggal',margin,y);doc.setTextColor(28,57,45);doc.text(pdfDate(sale.createdAt),pageW-margin,y,{align:'right'});y+=6;
+   doc.setDrawColor(207,221,211);doc.setLineWidth(.25);doc.line(margin,y,pageW-margin,y);y+=6;
+   doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(75,100,86);
+   doc.text('PRODUK',margin,y);doc.text('JUMLAH',pageW-margin,y,{align:'right'});y+=5;
+   doc.setFont('helvetica','normal');doc.setTextColor(28,57,45);
+   for(const {item,lines} of rows){
+    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.text(lines,margin,y);y+=Math.max(1,lines.length)*3.6;
+    doc.setFont('helvetica','normal');doc.setFontSize(7);
+    doc.setTextColor(94,115,104);doc.text(item.qty+' x '+money(item.price),margin+1,y);
+    doc.setTextColor(28,57,45);doc.text(money(item.qty*item.price),pageW-margin,y,{align:'right'});y+=7;
    }
-   doc.line(margin,y,pageW-margin,y);y+=6;
-   doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text('TOTAL',margin,y);doc.text(money(sale.total),pageW-margin,y,{align:'right'});y+=8;
-   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text('Terima kasih telah berbelanja',pageW/2,y,{align:'center'});y+=4;doc.text('Semoga lekas sehat kembali.',pageW/2,y,{align:'center'});
+   doc.setDrawColor(207,221,211);doc.line(margin,y,pageW-margin,y);y+=7;
+   const totalQty=sale.items.reduce((sum,item)=>sum+item.qty,0);
+   doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(94,115,104);
+   doc.text('Jumlah item',margin,y);doc.setTextColor(28,57,45);doc.text(String(totalQty),pageW-margin,y,{align:'right'});y+=7;
+   doc.setFillColor(232,245,237);doc.roundedRect(margin,y,contentW,19,3,3,'F');
+   doc.setTextColor(31,94,63);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('TOTAL PEMBAYARAN',margin+4,y+7);
+   doc.setFontSize(12);doc.text(money(sale.total),pageW-margin-4,y+14,{align:'right'});y+=29;
+   doc.setDrawColor(207,221,211);doc.line(margin,y,pageW-margin,y);y+=8;
+   doc.setTextColor(31,94,63);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('Terima kasih telah berbelanja!',pageW/2,y,{align:'center'});y+=5;
+   doc.setTextColor(94,115,104);doc.setFont('helvetica','normal');doc.setFontSize(7);
+   doc.text('Semoga lekas sehat kembali.',pageW/2,y,{align:'center'});y+=8;
+   doc.setFontSize(6);doc.text('Simpan struk ini sebagai bukti transaksi.',pageW/2,y,{align:'center'});
    await savePDF(doc,'struk-naufal-farma-'+(sale.id??Date.now())+'.pdf');
   }catch(e){setNotice('PDF struk gagal dibuat: '+String(e))}finally{setPdfBusy(false)}
  }
