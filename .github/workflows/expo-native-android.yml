@@ -40,8 +40,11 @@ jobs:
       - name: Detect Expo SDK and project state
         run: npx --yes @expo/agent-cli@latest status
 
-      - name: Install SDK-compatible dependencies
-        run: npx --yes @expo/agent-cli@latest install --fix
+      - name: Install project dependencies
+        run: npx --yes @expo/agent-cli@latest install
+
+      - name: Align dependencies with the installed Expo SDK
+        run: npx expo install --fix
 
       - name: TypeScript check
         run: npx tsc --noEmit
