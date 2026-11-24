@@ -979,3 +979,25 @@ html[data-theme="dark"] .nf-primary,html[data-theme="dark"] .nf-ui-button.nf-pri
     flex-wrap: wrap;
   }
 }
+
+/* Data-rich visual layer: make operational metrics legible at a glance. */
+.nf-dashboard-trend { position:relative; overflow:hidden; }
+.nf-dashboard-trend::before { content:""; position:absolute; inset:0 0 auto; height:2px; background:linear-gradient(90deg,transparent,var(--ad-brand),transparent); opacity:.7; }
+.nf-trend-visual { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); align-items:end; gap:clamp(8px,2vw,18px); min-height:184px; padding:18px 12px 8px; border:1px solid var(--ad-border); border-radius:20px; background:linear-gradient(180deg,var(--ad-surface-raised),transparent); }
+.nf-trend-day { display:grid; grid-template-rows:112px auto auto; align-items:end; justify-items:center; gap:7px; min-width:0; }
+.nf-trend-day b { max-width:100%; color:var(--ad-text); font-size:clamp(8px,1vw,11px); font-weight:750; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.nf-trend-day small { color:var(--ad-muted); font-size:10px; font-weight:700; }
+.nf-trend-track { position:relative; display:flex; align-items:flex-end; width:min(100%,36px); height:112px; overflow:hidden; border-radius:12px; background:var(--ad-surface-soft); box-shadow:inset 0 1px 3px rgba(0,0,0,.06); }
+.nf-trend-track span { display:block; width:100%; min-height:4px; border-radius:10px 10px 4px 4px; background:linear-gradient(180deg,#9ce8c1 0%,#2a9b70 100%); box-shadow:0 0 18px rgba(42,155,112,.22); transition:height .55s cubic-bezier(.2,.8,.2,1); }
+.nf-visual-product-icon img { width:100%; height:100%; object-fit:contain; }
+.nf-visual-stock-card { min-height:76px; }
+.nf-visual-stock-card strong { padding:7px 9px; border-radius:12px; color:var(--ad-brand-strong); background:var(--ad-brand-soft); font-size:15px; }
+.nf-stat { position:relative; overflow:hidden; }
+.nf-stat::after { content:""; position:absolute; right:-20px; bottom:-30px; width:88px; height:88px; border:1px solid var(--ad-border); border-radius:50%; box-shadow:0 0 0 12px color-mix(in srgb,var(--ad-brand-soft) 65%,transparent),0 0 0 25px color-mix(in srgb,var(--ad-brand-soft) 35%,transparent); pointer-events:none; }
+.nf-dashboard-poster-art img { filter:drop-shadow(0 16px 24px rgba(30,105,72,.16)); }
+@media(max-width:720px) {
+ .nf-trend-visual { min-height:160px; gap:5px; padding:14px 7px 8px; }
+ .nf-trend-day { grid-template-rows:94px auto auto; gap:5px; }
+ .nf-trend-track { height:94px; width:min(100%,30px); }
+ .nf-trend-day b { font-size:8px; }
+}
