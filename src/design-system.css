@@ -900,3 +900,82 @@ html[data-theme="dark"] .nf-primary,html[data-theme="dark"] .nf-ui-button.nf-pri
 @media(prefers-reduced-transparency:reduce) {
   .nf-app-topbar,.nf-app-nav { background:var(--ad-surface-solid)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important; }
 }
+
+/* Mobile viewport containment — prevent page-level horizontal panning. */
+@media (max-width: 720px) {
+  html, body, #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+  .nf-app {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+  }
+  .nf-app-topbar,
+  .nf-app-main,
+  .nf-panel,
+  .nf-screen-header,
+  .nf-panel-head,
+  .nf-report-kpi-grid,
+  .nf-report-tools,
+  .nf-sales-report-list {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .nf-app-main {
+    width: 100%;
+    overflow-x: clip;
+    padding-inline: 12px;
+  }
+  .nf-panel-head {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .nf-panel-head > * {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .nf-report-kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .nf-report-kpi {
+    min-width: 0;
+    padding: 10px 8px;
+  }
+  .nf-report-kpi b,
+  .nf-report-kpi small {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .nf-report-tools {
+    align-items: stretch;
+  }
+  .nf-report-tools label {
+    flex: 1 1 130px;
+    min-width: 0;
+  }
+  .nf-report-tools input {
+    width: 100%;
+    min-width: 0;
+  }
+  .nf-report-tools button {
+    max-width: 100%;
+    white-space: normal;
+  }
+  .nf-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  .nf-sales-report-item,
+  .nf-sales-report-top,
+  .nf-sales-report-total {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+}
