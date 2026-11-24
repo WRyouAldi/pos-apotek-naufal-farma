@@ -1097,3 +1097,17 @@ html[data-theme="dark"] .nf-feature-device,html[data-theme="dark"] .nf-report-vi
 @media(max-width:760px){.nf-feature-hero{grid-template-columns:minmax(0,1fr);gap:10px;padding:19px 15px;border-radius:21px}.nf-feature-hero-copy h2{font-size:29px}.nf-feature-visual{min-height:180px}.nf-feature-device,.nf-report-visual{width:min(100%,390px);transform:none}.nf-feature-float-a{right:0}.nf-feature-float-b{left:0}.nf-catalog-orbit{width:min(100%,360px)}}
 @media(max-width:380px){.nf-feature-metrics{gap:6px}.nf-feature-metrics>span{min-width:0;flex:1;padding:8px}.nf-feature-metrics b{font-size:12px}.nf-feature-metrics small{font-size:8px}.nf-feature-visual{margin-inline:-4px}}
 @media(min-width:680px) and (max-width:900px) and (orientation:landscape){.nf-feature-hero{grid-template-columns:minmax(0,1fr) minmax(210px,.8fr);min-height:205px}.nf-feature-hero-copy h2{font-size:25px}}@media(max-width:679px) and (orientation:landscape){.nf-feature-hero{grid-template-columns:minmax(0,1fr);gap:10px}.nf-feature-hero-copy h2{font-size:27px}.nf-feature-visual{min-height:165px}}
+
+/* Adaptive polish: keep content usable from compact phones through landscape tablets. */
+.nf-app-main,.nf-screen-header,.nf-panel,.nf-panel-head,.nf-feature-hero,.nf-feature-hero-copy{min-width:0}
+.nf-app-main{overflow-x:clip}
+.nf-panel-head{flex-wrap:wrap}
+.nf-panel-actions,.nf-settings-actions,.nf-product-form-actions{min-width:0}
+.nf-grid-two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.nf-table-wrap,.nf-table-scroll,.nf-report-table-wrap{max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain;-webkit-overflow-scrolling:touch}
+img,svg,canvas{max-width:100%}
+@media(max-width:1050px){.nf-app-main{padding-inline:clamp(14px,2.4vw,24px)}.nf-grid-two{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:720px){.nf-app-main{padding:18px 14px calc(30px + var(--ad-safe-bottom))}.nf-screen-header{align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:17px}.nf-screen-header h1{font-size:clamp(24px,7vw,32px)}.nf-panel{padding:15px;border-radius:18px}.nf-panel-head{align-items:flex-start}.nf-panel-actions{width:100%}.nf-panel-actions>*{flex:1 1 auto}.nf-stats{gap:9px}.nf-stat{padding:14px}.nf-stat strong{font-size:clamp(17px,5vw,22px)}.nf-visual-stock-grid,.nf-product-visual-grid{grid-template-columns:minmax(0,1fr)}.nf-feature-hero{overflow:hidden}.nf-feature-visual{max-width:100%;min-width:0}}
+@media(max-width:420px){.nf-app-main{padding-inline:11px}.nf-panel{padding:13px}.nf-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.nf-stat-top{font-size:10px}.nf-stat-icon{width:34px;height:34px}.nf-screen-context{font-size:10px}.nf-panel-head{gap:8px}}
+@media(max-width:900px) and (orientation:landscape){.nf-app-main{padding-top:14px;padding-bottom:28px}.nf-screen-header{margin-bottom:14px;padding-bottom:12px}.nf-feature-hero{min-height:0}.nf-feature-visual{min-height:150px}}
+@media(prefers-reduced-motion:reduce){.nf-app *{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
