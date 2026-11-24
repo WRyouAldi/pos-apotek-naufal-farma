@@ -314,7 +314,6 @@ tfoot th { position:static; color:var(--ad-text); text-transform:none; }
 html[data-theme="dark"] { --lg-pharmacy-tint:rgba(67,191,145,.13); }
 html[data-lg-glass="ready"] .app-topbar,html[data-lg-glass="ready"] .app-nav { background:transparent!important; -webkit-backdrop-filter:none!important; backdrop-filter:none!important; }
 .lg-progressive-edge { position:absolute; z-index:3; inset-inline:0; display:block; height:20px; pointer-events:none; background:transparent; }
-.app-topbar,.app-nav { position:relative; }
 .lg-progressive-edge--topbar { bottom:-1px; }
 .lg-progressive-edge--dock { top:-1px; }
 @media(max-width:720px) and (orientation:portrait) { .lg-progressive-edge { height:18px; } }
