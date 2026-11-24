@@ -2,6 +2,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import {parseMasterCSV,productsFromCSV} from './app/shared/data/master-csv';
 import {readProductOverrides,writeProductOverrides,readDeletedProductCodes,writeDeletedProductCodes} from './app/shared/data/product-sync-preferences';
 import {localDate,money,num} from './app/shared/format/formatters';
+import {recordSale} from './app/features/cashier/use-cases/record-sale';
 export default function App(){
  const [theme,setTheme]=useState<'light'|'dark'>(()=>{try{return localStorage.getItem('naufal-farma:theme')==='dark'?'dark':'light'}catch{return 'light'}}),[tab,setTab]=useState<Tab>('Dashboard'),[reportFrom,setReportFrom]=useState(''),[reportTo,setReportTo]=useState(''),[pdfBusy,setPdfBusy]=useState(false),[openMenu,setOpenMenu]=useState<'Produk'|'Persediaan'|null>(null),[products,setProducts]=useState<Product[]>([]),[productDialog,setProductDialog]=useState(false),[editingProduct,setEditingProduct]=useState<Product|null>(null),[productForm,setProductForm]=useState({code:'',barcode:'',name:'',category:'',brand:'',stock:'0',unit:'pcs',buyPrice:'0',sellPrice:'0',minStock:'0',shelf:'',supplier:''}),[sales,setSales]=useState<Sale[]>([]),[moves,setMoves]=useState<Movement[]>([]),[query,setQuery]=useState(''),[cart,setCart]=useState<{p:Product,qty:number}[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[scan,setScan]=useState(false),[stockDialog,setStockDialog]=useState<'MASUK'|'KELUAR'|null>(null),[stockQty,setStockQty]=useState(''),[syncing,setSyncing]=useState(false),[syncState,setSyncState]=useState<'online'|'offline'|'syncing'|'error'>('offline'),[lastSync,setLastSync]=useState(()=>{try{return localStorage.getItem('naufal-farma:last-csv-sync')||''}catch{return ''}}); const syncLock=useRef(false); const scannerRef=useRef<Html5Qrcode|null>(null),scanTimerRef=useRef<number|undefined>(undefined);
  useEffect(()=>{document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;const meta=document.querySelector('meta[name="theme-color"]');meta?.setAttribute('content',theme==='dark'?'#17232b':'#f3f5f0');try{localStorage.setItem('naufal-farma:theme',theme)}catch{}},[theme]);
@@ -68,24 +69,7 @@ export default function App(){
   if(!cart.length||busy)return;setBusy(true);
   try{
    const lines=cart.map(x=>({code:x.p.code,qty:x.qty}));
-   if(lines.some(x=>!Number.isSafeInteger(x.qty)||x.qty<1))throw new Error('Jumlah harus bilangan bulat positif.');
-   await db.transaction('rw',db.products,db.sales,db.movements,async()=>{
-    const fresh:{p:Product;qty:number}[]=[];
-    for(const line of lines){
-     const p=await db.products.where('code').equals(line.code).first();
-     if(!p)throw new Error('Produk tidak ditemukan: '+line.code);
-      if(!Number.isFinite(p.sellPrice)||p.sellPrice<0||!Number.isFinite(p.buyPrice)||p.buyPrice<0)throw new Error('Harga tidak valid: '+p.name);
-     fresh.push({p,qty:line.qty});
-    }
-    const sale:Sale={createdAt:new Date().toISOString(),total:fresh.reduce((a,x)=>a+x.qty*x.p.sellPrice,0),items:fresh.map(x=>({code:x.p.code,name:x.p.name,qty:x.qty,price:x.p.sellPrice,cost:x.p.buyPrice}))};
-    if(!Number.isFinite(sale.total)||sale.total<0)throw new Error('Total tidak valid.');
-    await db.sales.add(sale);
-    for(const x of fresh){
-     if(!x.p.id)throw new Error('Identitas produk tidak valid.');
-     await db.products.update(x.p.id,{stock:x.p.stock-x.qty});
-     await db.movements.add({createdAt:sale.createdAt,type:'PENJUALAN',code:x.p.code,name:x.p.name,qty:-x.qty,unitCost:x.p.buyPrice,note:'Penjualan kasir'});
-    }
-   });
+   await recordSale(lines);
    setCart([]);await refresh();setNotice('Transaksi berhasil disimpan.');
   }catch(e){setNotice('Transaksi dibatalkan: '+(e instanceof Error?e.message:String(e)));await refresh()}
   finally{setBusy(false)}
