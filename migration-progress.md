@@ -1,6 +1,6 @@
 # Migration Progress — POS Apotek Naufal Farma → Expo Native Android
 
-**Status:** Planning / assessment complete; implementation not started.  
+**Status:** Expo scaffold + feature map + SQLite schema v1 committed; dependency install/build/device verification pending; cashier transaction migration not started.  
 **Target:** Android APK only. Full native UI/UX redesign.  
 **Source of truth:** Existing Capacitor application on `main`.  
 **Working branch:** `migration/expo-native-android`.  
@@ -35,11 +35,11 @@
 - [ ] Confirm repository default branch and record exact baseline commit SHA before implementation.
 - [ ] Inventory every current route, tab, modal, action, input, report, and permission flow from the running Capacitor app.
 - [ ] Capture a functional baseline for all screens and workflows; document expected outcomes, not only screenshots.
-- [ ] Define a typed domain layer independent of UI: Product, Sale, SaleItem, Movement, inventory policies, report filters, backup schema.
-- [ ] Define SQLite schema, indexes, constraints, transaction boundaries, and schema versioning.
+- [x] Define typed Product, Sale, SaleItem, Movement, MovementType, and legacy backup envelope in `native/src/domain/models.ts`.
+- [x] Define SQLite schema v1, indexes, constraints, normalized sale items, and `PRAGMA user_version` migration in `native/src/db/`.
 - [ ] Define migration format from Dexie IndexedDB and a safe export/import path. Never assume the Android WebView's IndexedDB is automatically visible to the native SQLite database.
 - [ ] Define rollback and backup procedure before any destructive data migration.
-- [ ] Scaffold Expo in an isolated `native/` workspace with TypeScript, Expo Router, Android package ID, app icon/splash, environment config, and EAS build profiles.
+- [x] Scaffold isolated Expo SDK 58 / React Native 0.88 workspace in `native/` with TypeScript, Expo Router, Android-only app config, temporary side-by-side package ID, and APK EAS profiles. (Install/build still pending)
 - [ ] Set up native design tokens: pharmacy emerald, neutral surfaces, semantic status colors, typography, spacing, radii, elevation, light/dark mode, accessibility contrast.
 - [ ] Establish CI checks: lint/typecheck, unit tests, Expo export/build, Android APK artifact, and migration tests.
 
@@ -122,3 +122,29 @@
 
 For each screen/phase, record: status, changed files, tests run, device/build evidence, known defects, and rollback notes. Mark an item done only after runtime verification, not merely after code compiles.
 
+
+
+## Work log — 2026-11-25
+
+### Completed in `migration/expo-native-android`
+
+- Added isolated Expo SDK 58 app under `native/`; root Capacitor/Vite project files were not changed.
+- Added Android-only app config. Migration APK uses `com.naufalfarma.pos.native` so it can coexist with the legacy `com.naufalfarma.pos` app during testing.
+- Added Expo Router root and a minimal native foundation screen; this is not a port of the business screens.
+- Added `native/FEATURE-MAP.md` documenting legacy screen behavior, reports, barcode, PDF, CSV, JSON backup/restore, offline behavior, and the one-way GitHub catalog CSV sync.
+- Added typed domain models and SQLite schema v1 (`products`, `sales`, `sale_items`, `movements`, `app_meta`) with indexes and initialization migration.
+- Deliberately did not implement checkout or import legacy data in this phase.
+
+### Verification status
+
+- GitHub file writes completed on the migration branch.
+- Expo dependency installation, TypeScript check, Expo Doctor, Android build, and physical-device runtime verification have **not** been run in this environment. Do not treat this scaffold as a verified APK.
+- The legacy source currently has stock checks in the product picker and checkout. Native cashier must follow the user's previously approved no-stock-blocking rule; stock-out remains a separate inventory operation.
+- SQLite schema intentionally permits negative product stock so the future cashier can apply that rule without a database constraint blocking the transaction.
+
+### Next bounded tasks
+
+1. Run the Expo agent CLI in a project-capable environment; align SDK 58 dependencies and generate the lockfile.
+2. Run TypeScript + Expo Doctor; correct any SDK/config incompatibility.
+3. Add database repository tests and verify schema initialization on Android.
+4. Only then design and implement the cashier transaction service with one atomic sale + sale-item + movement + stock adjustment transaction. Do not port UI checkout until the service tests pass.
