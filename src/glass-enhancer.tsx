@@ -39,12 +39,12 @@ export function GlassEnhancer({ children }: Props) {
         });
 
         const topEdge = document.createElement('span');
-        topEdge.className = 'lg-progressive-edge lg-progressive-edge--topbar';
+        topEdge.className = 'nf-lg-progressive-edge nf-lg-progressive-edge--topbar';
         topEdge.setAttribute('aria-hidden', 'true');
         topbar.append(topEdge);
 
         const dockEdge = document.createElement('span');
-        dockEdge.className = 'lg-progressive-edge lg-progressive-edge--dock';
+        dockEdge.className = 'nf-lg-progressive-edge nf-lg-progressive-edge--dock';
         dockEdge.setAttribute('aria-hidden', 'true');
         dock.append(dockEdge);
 
