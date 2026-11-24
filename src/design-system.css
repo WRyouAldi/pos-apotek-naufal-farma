@@ -1141,3 +1141,16 @@ html[data-theme="dark"] .nf-dashboard-welcome{background:linear-gradient(115deg,
  .nf-dashboard-welcome~.nf-stats .nf-stat-top{font-size:10px}
  .nf-dashboard-welcome~.nf-stats .nf-stat-icon{width:32px;height:32px}
 }
+
+/* Contextual pharmacy artwork: optimized local SVG assets, no remote image dependency. */
+.nf-dashboard-welcome{position:relative;isolation:isolate;overflow:hidden;background-image:linear-gradient(90deg,rgba(232,248,240,.98) 0%,rgba(232,248,240,.92) 43%,rgba(232,248,240,.22) 100%),url('/assets/pharmacy-hero.svg');background-size:cover;background-position:center right;background-repeat:no-repeat}
+html[data-theme="dark"] .nf-dashboard-welcome{background-image:linear-gradient(90deg,rgba(24,43,36,.98) 0%,rgba(24,43,36,.91) 46%,rgba(24,43,36,.35) 100%),url('/assets/pharmacy-hero.svg')}
+.nf-dashboard-welcome:after{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(115deg,transparent 48%,rgba(255,255,255,.12));pointer-events:none}
+.nf-feature-hero-cashier .nf-feature-visual{background-image:linear-gradient(145deg,rgba(231,248,239,.78),rgba(255,255,255,.18)),url('/assets/cashier-illustration.svg');background-size:cover;background-position:center}
+.nf-feature-hero-incoming .nf-feature-visual,.nf-feature-hero-outgoing .nf-feature-visual{background-image:linear-gradient(145deg,rgba(231,248,239,.78),rgba(255,255,255,.16)),url('/assets/inventory-illustration.svg');background-size:cover;background-position:center}
+html[data-theme="dark"] .nf-feature-hero-cashier .nf-feature-visual,html[data-theme="dark"] .nf-feature-hero-incoming .nf-feature-visual,html[data-theme="dark"] .nf-feature-hero-outgoing .nf-feature-visual{background-blend-mode:soft-light}
+@media(max-width:720px){
+ .nf-dashboard-welcome{background-position:58% center;background-image:linear-gradient(90deg,rgba(232,248,240,.98) 0%,rgba(232,248,240,.92) 57%,rgba(232,248,240,.48) 100%),url('/assets/pharmacy-hero.svg')}
+ html[data-theme="dark"] .nf-dashboard-welcome{background-image:linear-gradient(90deg,rgba(24,43,36,.98) 0%,rgba(24,43,36,.92) 58%,rgba(24,43,36,.58) 100%),url('/assets/pharmacy-hero.svg')}
+}
+@media(prefers-reduced-motion:reduce){.nf-dashboard-welcome,.nf-feature-visual{background-attachment:scroll}}
