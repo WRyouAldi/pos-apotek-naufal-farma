@@ -1,4 +1,15 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
+import {jsPDF} from 'jspdf';
+import {Capacitor} from '@capacitor/core';
+import {App as CapacitorApp} from '@capacitor/app';
+import {Directory,Filesystem} from '@capacitor/filesystem';
+import {Share} from '@capacitor/share';
+import {db,type Product,type Sale,type Movement} from './db';
+import {buildInventoryMovementPDF} from './reports/inventory-pdf';
+import {Activity,ArrowDownToLine,ArrowUpFromLine,BarChart3,Boxes,Camera,ChevronDown,Home,Package,Search,Settings,ShoppingCart,ShoppingBag,Upload,WifiOff,Download,FileUp,Sparkles,Pill,TrendingUp,AlertTriangle,PackageCheck,ScanLine,ClipboardList,ShieldCheck,Cloud,RefreshCw,Sun,Moon,Wallet,Plus,Pencil,Trash2} from 'lucide-react';
+import {Html5Qrcode} from 'html5-qrcode';
+import {UiButton,UiInput,UiModal} from './ui';
+type Tab='Dashboard'|'Kasir'|'Cek Harga'|'Barang'|'Barang Masuk'|'Barang Keluar'|'Laporan'|'Pengaturan';
 import {parseMasterCSV,productsFromCSV} from './app/shared/data/master-csv';
 import {readProductOverrides,writeProductOverrides,readDeletedProductCodes,writeDeletedProductCodes} from './app/shared/data/product-sync-preferences';
 import {localDate,money,num} from './app/shared/format/formatters';
