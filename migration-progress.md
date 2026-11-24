@@ -148,3 +148,23 @@ For each screen/phase, record: status, changed files, tests run, device/build ev
 2. Run TypeScript + Expo Doctor; correct any SDK/config incompatibility.
 3. Add database repository tests and verify schema initialization on Android.
 4. Only then design and implement the cashier transaction service with one atomic sale + sale-item + movement + stock adjustment transaction. Do not port UI checkout until the service tests pass.
+
+
+## Work log — 2026-11-25 (validation stage)
+
+### Added
+
+- Added .github/workflows/expo-native-android.yml to run the Expo agent CLI, resolve SDK-compatible packages, run TypeScript and Expo Doctor checks, prebuild Android, assemble a debug APK, and retain the APK plus resolved dependency manifest as workflow artifacts.
+- Added native/.gitignore for Expo caches, dependencies, generated Android project, and build outputs.
+- Removed first-run npm cache dependency on a lockfile that does not exist yet.
+
+### Validation attempt and blocker
+
+- Confirmed the Expo project files and legacy Dexie models are present on this migration branch.
+- The Expo2 remote sandbox could not be created because the Expo integration requires an existing registered Expo experience (appFullName / extra.eas.projectId). This repository's new Expo app is not linked to an Expo/EAS project yet.
+- GitHub Actions run/status could not be retrieved for the newly added push workflow; no check run or artifact is currently visible from the available GitHub connector. Therefore dependency installation, lockfile generation, TypeScript, Expo Doctor, Gradle APK build, and device tests remain unverified.
+- No fake success state is recorded. The workflow is committed and awaits an available Actions runner / Expo project connection.
+
+### Required next action
+
+- Enable/allow GitHub Actions for the repository (if disabled) and inspect the Expo Native Android Foundation run on branch migration/expo-native-android; alternatively link native/ to an Expo project (extra.eas.projectId) so Expo2 can provision a sandbox. Do not port cashier transactions until SDK checks, schema tests, and Android runtime validation pass.
