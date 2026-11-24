@@ -15,51 +15,26 @@ import {parseMasterCSV,productsFromCSV} from './app/shared/data/master-csv';
 import {readProductOverrides,writeProductOverrides,readDeletedProductCodes,writeDeletedProductCodes} from './app/shared/data/product-sync-preferences';
 import {localDate,money,num} from './app/shared/format/formatters';
 import {recordSale} from './app/features/cashier/use-cases/record-sale';
+import {recordInventoryMovement} from './app/features/inventory/use-cases/record-movement';
+import {saveCatalogProduct,removeCatalogProduct,importCatalogProducts} from './app/features/catalog/use-cases/manage-catalog';
+import {BarcodeScanner} from './app/features/scanner/infrastructure/barcode-scanner';
+import {filterSalesByRange,filterMovementsByRange,summarizeInventoryMovements} from './app/features/reports/domain/report-selectors';
+import {fetchMasterCatalogCSV,syncMasterCatalogCSV} from './app/features/synchronization/use-cases/sync-master-catalog';
 export default function App(){
- const [theme,setTheme]=useState<'light'|'dark'>(()=>{try{return localStorage.getItem('naufal-farma:theme')==='dark'?'dark':'light'}catch{return 'light'}}),[tab,setTab]=useState<Tab>('Dashboard'),[reportFrom,setReportFrom]=useState(''),[reportTo,setReportTo]=useState(''),[pdfBusy,setPdfBusy]=useState(false),[openMenu,setOpenMenu]=useState<'Produk'|'Persediaan'|null>(null),[products,setProducts]=useState<Product[]>([]),[productDialog,setProductDialog]=useState(false),[editingProduct,setEditingProduct]=useState<Product|null>(null),[productForm,setProductForm]=useState({code:'',barcode:'',name:'',category:'',brand:'',stock:'0',unit:'pcs',buyPrice:'0',sellPrice:'0',minStock:'0',shelf:'',supplier:''}),[sales,setSales]=useState<Sale[]>([]),[moves,setMoves]=useState<Movement[]>([]),[query,setQuery]=useState(''),[cart,setCart]=useState<{p:Product,qty:number}[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[scan,setScan]=useState(false),[stockDialog,setStockDialog]=useState<'MASUK'|'KELUAR'|null>(null),[stockQty,setStockQty]=useState(''),[syncing,setSyncing]=useState(false),[syncState,setSyncState]=useState<'online'|'offline'|'syncing'|'error'>('offline'),[lastSync,setLastSync]=useState(()=>{try{return localStorage.getItem('naufal-farma:last-csv-sync')||''}catch{return ''}}); const syncLock=useRef(false); const scannerRef=useRef<Html5Qrcode|null>(null),scanTimerRef=useRef<number|undefined>(undefined);
+ const [theme,setTheme]=useState<'light'|'dark'>(()=>{try{return localStorage.getItem('naufal-farma:theme')==='dark'?'dark':'light'}catch{return 'light'}}),[tab,setTab]=useState<Tab>('Dashboard'),[reportFrom,setReportFrom]=useState(''),[reportTo,setReportTo]=useState(''),[pdfBusy,setPdfBusy]=useState(false),[openMenu,setOpenMenu]=useState<'Produk'|'Persediaan'|null>(null),[products,setProducts]=useState<Product[]>([]),[productDialog,setProductDialog]=useState(false),[editingProduct,setEditingProduct]=useState<Product|null>(null),[productForm,setProductForm]=useState({code:'',barcode:'',name:'',category:'',brand:'',stock:'0',unit:'pcs',buyPrice:'0',sellPrice:'0',minStock:'0',shelf:'',supplier:''}),[sales,setSales]=useState<Sale[]>([]),[moves,setMoves]=useState<Movement[]>([]),[query,setQuery]=useState(''),[cart,setCart]=useState<{p:Product,qty:number}[]>([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[scan,setScan]=useState(false),[stockDialog,setStockDialog]=useState<'MASUK'|'KELUAR'|null>(null),[stockQty,setStockQty]=useState(''),[syncing,setSyncing]=useState(false),[syncState,setSyncState]=useState<'online'|'offline'|'syncing'|'error'>('offline'),[lastSync,setLastSync]=useState(()=>{try{return localStorage.getItem('naufal-farma:last-csv-sync')||''}catch{return ''}}); const syncLock=useRef(false); const scannerRef=useRef<BarcodeScanner|null>(null),scanTimerRef=useRef<number|undefined>(undefined);
  useEffect(()=>{document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;const meta=document.querySelector('meta[name="theme-color"]');meta?.setAttribute('content',theme==='dark'?'#17232b':'#f3f5f0');try{localStorage.setItem('naufal-farma:theme',theme)}catch{}},[theme]);
  async function refresh(){setProducts(await db.products.toArray());setSales(await db.sales.toArray());setMoves(await db.movements.toArray())}
 
  async function syncCloudCSV(showFeedback=false){
-  if(syncLock.current)return;
-  if(!navigator.onLine){setSyncState('offline');return}
+  if(syncLock.current)return;if(!navigator.onLine){setSyncState('offline');return}
   syncLock.current=true;setSyncing(true);setSyncState('syncing');
   try{
-   let raw='';
-   const controller=new AbortController(),timeout=window.setTimeout(()=>controller.abort(),20000);
-   try{
-    const url='https://raw.githubusercontent.com/WRyouAldi/pos-apotek-naufal-farma/main/public/data/xReport2.csv?sync='+Date.now();
-    const response=await fetch(url,{cache:'no-store',signal:controller.signal});
-    if(!response.ok)throw new Error('GitHub raw merespons '+response.status);
-    raw=await response.text();
-   }catch(rawError){
-    const response=await fetch('https://api.github.com/repos/WRyouAldi/pos-apotek-naufal-farma/contents/public/data/xReport2.csv?ref=main',{cache:'no-store',headers:{Accept:'application/vnd.github+json'}});
-    if(!response.ok)throw new Error('GitHub tidak dapat diakses ('+response.status+'). '+(rawError instanceof Error?rawError.message:''));
-    const payload=await response.json() as {content?:string;encoding?:string};
-    if(!payload.content||payload.encoding!=='base64')throw new Error('Isi CSV GitHub tidak dapat dibaca.');
-    const binary=atob(payload.content.replace(/\s/g,''));
-    raw=new TextDecoder().decode(Uint8Array.from(binary,ch=>ch.charCodeAt(0)));
-   }finally{window.clearTimeout(timeout)}
-   const parsed=parseMasterCSV(raw);
-   const {list:incoming,skipped}=productsFromCSV(parsed);
-   if(incoming.length<100)throw new Error('CSV GitHub tidak lengkap: hanya '+incoming.length+' produk valid. Data lokal tidak diubah.');
-   const existing=await db.products.toArray(),byCode=new Map(existing.map(p=>[p.code,p]));
-   const overrides=readProductOverrides(),deleted=new Set(readDeletedProductCodes());
-   await db.transaction('rw',db.products,async()=>{
-    for(const item of incoming){
-     if(deleted.has(item.code))continue;
-     const merged={...item,...(overrides[item.code]||{})};
-     const old=byCode.get(item.code);
-     if(old&&old.id)await db.products.update(old.id,{...merged,stock:overrides[item.code]?.stock??old.stock,barcode:merged.barcode||old.barcode});
-     else await db.products.add(merged);
-    }
-   });
+   const raw=await fetchMasterCatalogCSV();
+   const result=await syncMasterCatalogCSV(raw);
    await refresh();const syncedAt=new Date().toISOString();setLastSync(syncedAt);try{localStorage.setItem('naufal-farma:last-csv-sync',syncedAt)}catch{}setSyncState('online');
-   if(showFeedback)setNotice('Sinkronisasi GitHub berhasil: '+incoming.length+' produk diperiksa.'+(parsed.repaired?', '+parsed.repaired+' baris CSV dirapikan.':'')+(skipped?', '+skipped+' baris non-produk dilewati.':''));
-  }catch(e){
-   setSyncState(navigator.onLine?'error':'offline');
-   if(showFeedback)setNotice('Sync GitHub gagal. Data lokal tetap digunakan: '+(e instanceof Error?e.message:String(e)));
-  }finally{syncLock.current=false;setSyncing(false)}
+   if(showFeedback)setNotice('Sinkronisasi GitHub berhasil: '+result.count+' produk diperiksa.'+(result.repaired?', '+result.repaired+' baris CSV dirapikan.':'')+(result.skipped?', '+result.skipped+' baris non-produk dilewati.':''));
+  }catch(e){setSyncState(navigator.onLine?'error':'offline');if(showFeedback)setNotice('Sync GitHub gagal. Data lokal tetap digunakan: '+(e instanceof Error?e.message:String(e)))}
+  finally{syncLock.current=false;setSyncing(false)}
  }
  useEffect(()=>{
   void (async()=>{await refresh();await syncCloudCSV()})();
@@ -87,24 +62,11 @@ export default function App(){
   finally{setBusy(false)}
  }
  async function moveStock(type:'MASUK'|'KELUAR'){
-  if(busy)return;
-  const p=products.find(x=>x.code===query.trim()||x.barcode===query.trim());
+  if(busy)return;const p=products.find(x=>x.code===query.trim()||x.barcode===query.trim());
   if(!p){setNotice('Pilih produk dengan kode atau barcode yang tepat.');return}
-  const qty=Number(stockQty.trim());
-  if(!Number.isSafeInteger(qty)||qty<1){setNotice('Jumlah harus bilangan bulat positif.');return}
-  setBusy(true);
-  try{
-   await db.transaction('rw',db.products,db.movements,async()=>{
-    const fresh=await db.products.where('code').equals(p.code).first();
-    if(!fresh?.id)throw new Error('Produk tidak ditemukan.');
-    if(type==='KELUAR'&&qty>fresh.stock)throw new Error('Stok tidak cukup. Tersedia: '+fresh.stock);
-    const next=fresh.stock+(type==='MASUK'?qty:-qty);
-    if(!Number.isSafeInteger(next))throw new Error('Perubahan stok tidak valid.');
-    await db.products.update(fresh.id,{stock:next});
-    await db.movements.add({createdAt:new Date().toISOString(),type,code:fresh.code,name:fresh.name,qty:type==='MASUK'?qty:-qty,unitCost:fresh.buyPrice,note:type==='MASUK'?'Penerimaan':'Pengeluaran'});
-   });
-   await refresh();setNotice('Mutasi stok tersimpan.');
-  }catch(e){setNotice('Mutasi dibatalkan: '+(e instanceof Error?e.message:String(e)))}
+  const qty=Number(stockQty.trim());if(!Number.isSafeInteger(qty)||qty<1){setNotice('Jumlah harus bilangan bulat positif.');return}
+  setBusy(true);try{await recordInventoryMovement(p.code,qty,type);await refresh();setNotice('Mutasi stok tersimpan.')}
+  catch(e){setNotice('Mutasi dibatalkan: '+(e instanceof Error?e.message:String(e)))}
   finally{setBusy(false);setStockDialog(null);setStockQty('')}
  }
  function openProductForm(product?:Product){
@@ -113,101 +75,29 @@ export default function App(){
   setProductDialog(true);
  }
  async function saveProduct(){
-  if(busy)return;
-  const code=productForm.code.trim(),name=productForm.name.trim();
-  if(!code||!name){setNotice('Kode item dan nama barang wajib diisi.');return}
+  if(busy)return;const code=productForm.code.trim(),name=productForm.name.trim();
   const stock=Number(productForm.stock),buyPrice=Number(productForm.buyPrice),sellPrice=Number(productForm.sellPrice),minStock=Number(productForm.minStock);
-  if(![stock,buyPrice,sellPrice,minStock].every(Number.isSafeInteger)||stock<0||buyPrice<0||sellPrice<0||minStock<0){setNotice('Stok dan harga harus berupa bilangan bulat nol atau lebih.');return}
-  setBusy(true);
-  try{
-   const duplicate=await db.products.where('code').equals(code).first();
-   if(duplicate&&duplicate.id!==editingProduct?.id)throw new Error('Kode item sudah digunakan oleh barang lain.');
-   const payload:Product={code,barcode:productForm.barcode.trim(),name,category:productForm.category.trim(),brand:productForm.brand.trim(),stock,unit:productForm.unit.trim()||'pcs',buyPrice,sellPrice,minStock,shelf:productForm.shelf.trim(),supplier:productForm.supplier.trim()};
-   if(editingProduct?.id){
-    await db.products.update(editingProduct.id,payload);
-    if(editingProduct.code!==code){
-     const deleted=readDeletedProductCodes();writeDeletedProductCodes([...deleted,editingProduct.code]);
-     const overrides=readProductOverrides();delete overrides[editingProduct.code];writeProductOverrides({...overrides,[code]:payload});
-    }else{const overrides=readProductOverrides();writeProductOverrides({...overrides,[code]:payload})}
-    setNotice('Master barang berhasil diperbarui.');
-   }else{
-    await db.products.add(payload);
-    const deleted=readDeletedProductCodes().filter(value=>value!==code);writeDeletedProductCodes(deleted);
-    const overrides=readProductOverrides();writeProductOverrides({...overrides,[code]:payload});
-    setNotice('Barang baru berhasil ditambahkan.');
-   }
-   await refresh();setProductDialog(false);setEditingProduct(null);
-  }catch(e){setNotice('Simpan master barang gagal: '+(e instanceof Error?e.message:String(e)))}
-  finally{setBusy(false)}
+  const payload:Product={code,barcode:productForm.barcode.trim(),name,category:productForm.category.trim(),brand:productForm.brand.trim(),stock,unit:productForm.unit.trim()||'pcs',buyPrice,sellPrice,minStock,shelf:productForm.shelf.trim(),supplier:productForm.supplier.trim()};
+  setBusy(true);try{await saveCatalogProduct(payload,editingProduct);await refresh();setProductDialog(false);setEditingProduct(null);setNotice(editingProduct?'Master barang berhasil diperbarui.':'Barang baru berhasil ditambahkan.')}
+  catch(e){setNotice('Simpan master barang gagal: '+(e instanceof Error?e.message:String(e)))}finally{setBusy(false)}
  }
  async function deleteProduct(product:Product){
   if(busy||!product.id)return;
   if(!window.confirm('Hapus "'+product.name+'" dari master barang pada perangkat ini? Riwayat transaksi dan mutasi yang sudah tersimpan tidak ikut dihapus.'))return;
-  setBusy(true);
-  try{
-   await db.products.delete(product.id);
-   writeDeletedProductCodes([...readDeletedProductCodes(),product.code]);
-   const overrides=readProductOverrides();delete overrides[product.code];writeProductOverrides(overrides);
-   setCart(current=>current.filter(item=>item.p.code!==product.code));
-   await refresh();setNotice('Barang berhasil dihapus dari master lokal.');
-  }catch(e){setNotice('Hapus barang gagal: '+(e instanceof Error?e.message:String(e)))}
-  finally{setBusy(false)}
+  setBusy(true);try{await removeCatalogProduct(product);setCart(current=>current.filter(item=>item.p.code!==product.code));await refresh();setNotice('Barang berhasil dihapus dari master lokal.')}
+  catch(e){setNotice('Hapus barang gagal: '+(e instanceof Error?e.message:String(e)))}finally{setBusy(false)}
  }
  async function importCSV(file:File){
-  if(busy)return;
-  setBusy(true);
-  try{
-   const raw=await file.text();
-   const parsed=parseMasterCSV(raw);
-   const {list,skipped}=productsFromCSV(parsed);
-   if(list.length<1)throw new Error('Tidak ada produk valid untuk diimpor.');
-   const existing=await db.products.toArray(),byCode=new Map(existing.map(p=>[p.code,p]));
-   await db.transaction('rw',db.products,async()=>{
-    for(const p of list){
-     const old=byCode.get(p.code);
-     if(old?.id)await db.products.update(old.id,{...p,stock:old.stock,barcode:p.barcode||old.barcode});
-     else await db.products.add(p);
-    }
-   });
-   await refresh();setNotice('Impor berhasil: '+list.length+' produk; stok lokal dipertahankan.'+(skipped?', '+skipped+' baris kosong/non-produk dilewati.':'')+(parsed.repaired?', '+parsed.repaired+' baris CSV tergabung diperbaiki.':''));
-  }catch(e){setNotice('Impor CSV dibatalkan: '+(e instanceof Error?e.message:String(e)))}
-  finally{setBusy(false)}
+  if(busy)return;setBusy(true);try{const parsed=parseMasterCSV(await file.text());const {list,skipped}=productsFromCSV(parsed);await importCatalogProducts(list);await refresh();setNotice('Impor berhasil: '+list.length+' produk; stok lokal dipertahankan.'+(skipped?', '+skipped+' baris kosong/non-produk dilewati.':'')+(parsed.repaired?', '+parsed.repaired+' baris CSV tergabung diperbaiki.':''))}
+  catch(e){setNotice('Impor CSV dibatalkan: '+(e instanceof Error?e.message:String(e)))}finally{setBusy(false)}
  }
- async function stopScan(){if(scanTimerRef.current!==undefined)window.clearTimeout(scanTimerRef.current);scanTimerRef.current=undefined;const q=scannerRef.current;scannerRef.current=null;if(q){try{if(q.isScanning)await q.stop();q.clear()}catch{}}setScan(false)}
+ async function stopScan(){if(scanTimerRef.current!==undefined)window.clearTimeout(scanTimerRef.current);scanTimerRef.current=undefined;const q=scannerRef.current;scannerRef.current=null;if(q)await q.stop();setScan(false)}
  async function startScan(showReadNotice=true){
-  if(scan||scanTimerRef.current!==undefined)return;
-  setScan(true);
-  scanTimerRef.current=window.setTimeout(async()=>{
-   scanTimerRef.current=undefined;
-   const reader=document.getElementById('barcode-reader');
-   if(!reader){setScan(false);setNotice('Area pemindai belum siap. Coba buka kembali.');return}
-   let q:Html5Qrcode|null=null;
-   try{
-    if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia)throw new Error('Akses kamera memerlukan koneksi aplikasi yang aman. Perbarui aplikasi dan coba lagi.');
-    const cameras=await Html5Qrcode.getCameras();
-    if(!cameras.length)throw new Error('Kamera tidak ditemukan pada perangkat ini.');
-    const camera=cameras.find(c=>/back|rear|environment|belakang/i.test(c.label))||cameras[cameras.length-1];
-    q=new Html5Qrcode('barcode-reader',{verbose:false});
-    scannerRef.current=q;
-    const boxWidth=Math.max(180,Math.min(280,reader.clientWidth-32));
-    await q.start(camera.id,{fps:12,qrbox:{width:boxWidth,height:Math.round(boxWidth*.48)},aspectRatio:16/9},async value=>{
-     if(scannerRef.current!==q)return;
-     setQuery(value.trim());
-     if(showReadNotice)setNotice('Barcode berhasil dibaca: '+value.trim());
-     await stopScan();
-    },()=>{});
-    if(scannerRef.current!==q&&q.isScanning)await q.stop();
-   }catch(error){
-    if(scannerRef.current===q)scannerRef.current=null;
-    if(q){try{if(q.isScanning)await q.stop();q.clear()}catch{}}
-    const message=error instanceof Error?error.message:String(error),lower=message.toLowerCase();
-    setNotice(lower.includes('permission')||lower.includes('notallowed')||lower.includes('denied')
-     ?'Izin kamera ditolak. Izinkan akses Kamera untuk aplikasi POS Apotek di pengaturan Android.'
-     :lower.includes('secure')?'Akses kamera tidak tersedia pada konteks aplikasi ini. Perbarui aplikasi Android.'
-     :'Pemindai gagal dibuka: '+message);
-    setScan(false);
-   }
-  },350);
+  if(scan||scanTimerRef.current!==undefined)return;setScan(true);
+  scanTimerRef.current=window.setTimeout(async()=>{scanTimerRef.current=undefined;const scanner=new BarcodeScanner();scannerRef.current=scanner;
+   try{await scanner.start('barcode-reader',async value=>{if(scannerRef.current!==scanner)return;setQuery(value);if(showReadNotice)setNotice('Barcode berhasil dibaca: '+value);await stopScan()})}
+   catch(error){if(scannerRef.current===scanner)scannerRef.current=null;await scanner.stop();const message=error instanceof Error?error.message:String(error),lower=message.toLowerCase();setNotice(lower.includes('permission')||lower.includes('notallowed')||lower.includes('denied')?'Izin kamera ditolak. Izinkan akses Kamera untuk aplikasi POS Apotek di pengaturan Android.':lower.includes('secure')?'Akses kamera tidak tersedia pada konteks aplikasi ini. Perbarui aplikasi Android.':'Pemindai gagal dibuka: '+message);setScan(false)}
+  },350)
  }
  useEffect(()=>()=>{if(scanTimerRef.current!==undefined)window.clearTimeout(scanTimerRef.current);const q=scannerRef.current;if(q?.isScanning)void q.stop()},[]);
  async function backupAll(){
@@ -364,12 +254,12 @@ export default function App(){
   </section>;
 })()}
  {tab==='Laporan'&&(()=>{
-  const inPeriod=(date:string)=>(!reportFrom||localDate(new Date(date))>=reportFrom)&&(!reportTo||localDate(new Date(date))<=reportTo);
-  const reportSales=sales.filter(s=>inPeriod(s.createdAt)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
-  const incoming=moves.filter(m=>m.type==='MASUK'&&inPeriod(m.createdAt)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
-  const outgoing=moves.filter(m=>m.type==='KELUAR'&&inPeriod(m.createdAt)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+  const range={from:reportFrom,to:reportTo};
+  const reportSales=filterSalesByRange(sales,range,localDate);
+  const incoming=filterMovementsByRange(moves,'MASUK',range,localDate);
+  const outgoing=filterMovementsByRange(moves,'KELUAR',range,localDate);
   const total=reportSales.reduce((a,s)=>a+s.total,0);
-  const inventorySummary=(list:Movement[])=>({qty:list.reduce((a,m)=>a+Math.abs(m.qty),0),value:list.reduce((a,m)=>a+Math.abs(m.qty)*m.unitCost,0)});
+  const inventorySummary=summarizeInventoryMovements;
   const incomingTotals=inventorySummary(incoming),outgoingTotals=inventorySummary(outgoing);
   const inventoryTable=(list:Movement[],emptyLabel:string)=><div className="nf-table-wrap"><table><thead><tr><th>Nama barang</th><th>Qty</th><th>Harga beli</th><th>Total</th></tr></thead><tbody>{list.map((m,i)=><tr key={m.id??m.createdAt+m.code+i}><td><b>{m.name}</b><small className="nf-table-subtext">{pdfDate(m.createdAt)}</small></td><td>{Math.abs(m.qty)}</td><td>{money(m.unitCost)}</td><td><b>{money(Math.abs(m.qty)*m.unitCost)}</b></td></tr>)}{!list.length&&<tr><td colSpan={4} className="nf-empty-state">{emptyLabel}</td></tr>}</tbody><tfoot><tr><th colSpan={3}>Total keseluruhan</th><th>{money(inventorySummary(list).value)}</th></tr></tfoot></table></div>;
   return <>
