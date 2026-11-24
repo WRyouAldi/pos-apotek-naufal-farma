@@ -1,0 +1,62 @@
+name: Expo Native Android Foundation
+
+on:
+  push:
+    branches:
+      - migration/expo-native-android
+    paths:
+      - "native/**"
+      - ".github/workflows/expo-native-android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: expo-native-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Install and validate Expo foundation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: native
+    steps:
+      - name: Checkout migration branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: native/package-lock.json
+
+      - name: Inspect Expo agent CLI commands
+        run: npx --yes @expo/agent-cli@latest --help
+
+      - name: Detect Expo SDK and project state
+        run: npx --yes @expo/agent-cli@latest status
+
+      - name: Install SDK-compatible dependencies
+        run: npx --yes @expo/agent-cli@latest install --fix
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Expo Doctor
+        run: npx --yes expo-doctor
+
+      - name: Save resolved package manifest and lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: expo-native-dependency-resolution
+          path: |
+            native/package.json
+            native/package-lock.json
+          if-no-files-found: warn
+          retention-days: 14
