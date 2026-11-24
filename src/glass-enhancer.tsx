@@ -25,8 +25,8 @@ export function GlassEnhancer({ children }: Props) {
 
     const mount = () => {
       if (disposed || scene) return;
-      const topbar = document.querySelector<HTMLElement>('.app-topbar');
-      const dock = document.querySelector<HTMLElement>('.app-nav');
+      const topbar = document.querySelector<HTMLElement>('.nf-app-topbar');
+      const dock = document.querySelector<HTMLElement>('.nf-app-nav');
       if (!topbar || !dock) return;
 
       try {
