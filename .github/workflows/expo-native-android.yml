@@ -33,8 +33,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: native/package-lock.json
 
       - name: Inspect Expo agent CLI commands
         run: npx --yes @expo/agent-cli@latest --help
