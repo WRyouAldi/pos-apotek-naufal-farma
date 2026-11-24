@@ -153,9 +153,10 @@ export default function App(){
   setPdfBusy(true);
   try{
    const pageW=80,margin=6,contentW=pageW-margin*2;
-   const rows=sale.items.map(item=>({item,lines:jsPDF.prototype.splitTextToSize?new jsPDF({unit:'mm',format:[80,180]}).splitTextToSize(item.name,contentW):[item.name]}));
-   const itemHeight=rows.reduce((sum,row)=>sum+Math.max(1,row.lines.length)*4+7,0);
-   const receiptHeight=Math.max(118,Math.min(600,82+itemHeight));
+   const measureDoc=new jsPDF({unit:'mm',format:[80,180]});
+   const rows=sale.items.map(item=>({item,lines:measureDoc.splitTextToSize(item.name,contentW)}));
+   const itemHeight=rows.reduce((sum,row)=>sum+Math.max(1,row.lines.length)*3.6+7,0);
+   const receiptHeight=Math.max(180,150+itemHeight);
    const doc=new jsPDF({unit:'mm',format:[pageW,receiptHeight]});
    let y=0;
    doc.setFillColor(19,105,75);doc.rect(0,0,pageW,31,'F');
