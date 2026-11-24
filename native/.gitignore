@@ -1,0 +1,21 @@
+# Expo / Metro
+.expo/
+.expo-shared/
+.metro-health-check*
+
+# Dependencies
+node_modules/
+
+# Generated native projects (created by Expo Prebuild)
+android/
+ios/
+
+# Build outputs
+*.apk
+*.aab
+*.hprof
+
+# Local environment
+.env
+.env.*
+!.env.example
