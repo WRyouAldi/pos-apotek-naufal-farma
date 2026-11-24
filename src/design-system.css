@@ -333,6 +333,3 @@ html[data-lg-glass="ready"] .nf-app-topbar,html[data-lg-glass="ready"] .nf-app-n
 .nf-lg-progressive-edge { position:absolute; z-index:3; inset-inline:0; display:block; height:20px; pointer-events:none; background:transparent; }
 .nf-lg-progressive-edge--topbar { bottom:-1px; }
 .nf-lg-progressive-edge--dock { top:-1px; }
-@media(max-width:720px) and (orientation:portrait) { .nf-lg-progressive-edge { height:18px; } }
-@media(max-width:900px) and (orientation:landscape) { .nf-lg-progressive-edge { height:14px; } }
-@media(prefers-reduced-transparency:reduce) { .nf-lg-progressive-edge { display:none!important; } }
