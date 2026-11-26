@@ -9,7 +9,6 @@
     "platforms": [
       "android"
     ],
-    "newArchEnabled": true,
     "android": {
       "package": "com.naufalfarma.posmigration",
       "permissions": [
