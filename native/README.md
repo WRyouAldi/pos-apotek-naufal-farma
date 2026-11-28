@@ -55,3 +55,15 @@ Database: `naufal-farma-native.db`, schema version 1.
 The schema intentionally does **not** constrain product stock to non-negative values. The cashier must not reintroduce an available-stock checkout blocker. Transaction creation and associated movement/stock updates must be implemented atomically in a later, separately tested phase.
 
 No legacy data is imported or modified by this scaffold.
+
+
+## Product CSV exchange
+
+The native foundation includes product master CSV import and export:
+
+- Import uses Android's document picker and validates required columns: `Kode Item`, `Nama Item`, `Stok`, `Harga Beli`, and `Harga Jual`.
+- Existing products are matched by exact product code. Master fields are updated while the locally managed stock quantity is preserved.
+- New products use the stock value from the CSV.
+- Duplicate product codes, invalid integer values, missing required fields, and malformed quoted CSV are rejected before database writes.
+- Export reads all products from SQLite and creates a UTF-8 CSV with the legacy master-product column names, then opens Android's share sheet so the user can save or send it.
+- This feature only imports/exports product master data. It does not overwrite sales or stock movement history.
